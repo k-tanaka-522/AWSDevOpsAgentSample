@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ユーザー詳細 - 介護サブシステム</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.6.0/dist/full.min.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+  <!-- 目的: ユーザー詳細画面のプロトタイプ -->
+  <!-- 影響: Coderが実装時の参考にする -->
+  <!-- 前提: Tailwind CSS + daisyUI が読み込まれている -->
+
+  <!-- ヘッダー -->
+  <div class="navbar bg-base-100 shadow-md">
+    <div class="flex-1">
+      <a href="index.html" class="btn btn-ghost text-xl">介護サブシステム</a>
+    </div>
+    <div class="flex-none">
+      <ul class="menu menu-horizontal px-1">
+        <li><a href="users-list.html" class="active">ユーザー管理</a></li>
+        <li><a>施設管理</a></li>
+        <li><a>設定</a></li>
+      </ul>
+    </div>
+    <div class="flex-none">
+      <div class="dropdown dropdown-end">
+        <label tabindex="0" class="btn btn-ghost btn-circle avatar">
+          <div class="w-10 rounded-full bg-neutral text-neutral-content">
+            <span class="text-sm">管理者</span>
+          </div>
+        </label>
+        <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+          <li><a>プロフィール</a></li>
+          <li><a>ログアウト</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- メインコンテンツ -->
+  <div class="container mx-auto p-8">
+    <!-- パンくずリスト -->
+    <div class="text-sm breadcrumbs mb-4">
+      <ul>
+        <li><a href="index.html">ホーム</a></li>
+        <li><a href="users-list.html">ユーザー一覧</a></li>
+        <li>ユーザー詳細</li>
+      </ul>
+    </div>
+
+    <!-- ヘッダーアクション -->
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-bold">ユーザー詳細</h1>
+      <div class="flex gap-2">
+        <a href="users-list.html" class="btn btn-ghost">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          戻る
+        </a>
+        <a href="user-edit.html" class="btn btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+          編集
+        </a>
+        <button class="btn btn-error" onclick="delete_modal.showModal()">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          削除
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- 左カラム: 基本情報 -->
+      <div class="lg:col-span-2">
+        <!-- 基本情報カード -->
+        <div class="card bg-base-100 shadow-xl mb-6">
+          <div class="card-body">
+            <h2 class="card-title mb-4">基本情報</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">ユーザーID</span>
+                </label>
+                <p class="text-lg">1234</p>
+              </div>
+
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">ステータス</span>
+                </label>
+                <span class="badge badge-success badge-lg">有効</span>
+              </div>
+
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">氏名</span>
+                </label>
+                <p class="text-lg">田中 太郎</p>
+              </div>
+
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">氏名（カナ）</span>
+                </label>
+                <p class="text-lg">タナカ タロウ</p>
+              </div>
+
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">メールアドレス</span>
+                </label>
+                <p class="text-lg">tanaka@example.com</p>
+              </div>
+
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">電話番号</span>
+                </label>
+                <p class="text-lg">090-1234-5678</p>
+              </div>
+
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">生年月日</span>
+                </label>
+                <p class="text-lg">1980年4月15日</p>
+              </div>
+
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">性別</span>
+                </label>
+                <p class="text-lg">男性</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 所属情報カード -->
+        <div class="card bg-base-100 shadow-xl mb-6">
+          <div class="card-body">
+            <h2 class="card-title mb-4">所属情報</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">所属施設</span>
+                </label>
+                <p class="text-lg">新潟市介護施設A</p>
+              </div>
+
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">部署</span>
+                </label>
+                <p class="text-lg">介護サービス部</p>
+              </div>
+
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">役職</span>
+                </label>
+                <p class="text-lg">介護職員</p>
+              </div>
+
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">雇用形態</span>
+                </label>
+                <p class="text-lg">正社員</p>
+              </div>
+
+              <div class="md:col-span-2">
+                <label class="label">
+                  <span class="label-text font-bold">保有資格</span>
+                </label>
+                <div class="flex gap-2 flex-wrap">
+                  <span class="badge badge-primary">介護福祉士</span>
+                  <span class="badge badge-primary">介護支援専門員</span>
+                  <span class="badge badge-primary">普通自動車免許</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 住所情報カード -->
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title mb-4">住所情報</h2>
+
+            <div class="grid grid-cols-1 gap-4">
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">郵便番号</span>
+                </label>
+                <p class="text-lg">950-0000</p>
+              </div>
+
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">住所</span>
+                </label>
+                <p class="text-lg">新潟県新潟市中央区○○町1-2-3</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右カラム: サブ情報 -->
+      <div>
+        <!-- アバターカード -->
+        <div class="card bg-base-100 shadow-xl mb-6">
+          <div class="card-body items-center text-center">
+            <div class="avatar placeholder mb-4">
+              <div class="bg-neutral text-neutral-content rounded-full w-32">
+                <span class="text-5xl">田</span>
+              </div>
+            </div>
+            <h3 class="text-xl font-bold">田中 太郎</h3>
+            <p class="text-gray-500">tanaka@example.com</p>
+          </div>
+        </div>
+
+        <!-- システム情報カード -->
+        <div class="card bg-base-100 shadow-xl mb-6">
+          <div class="card-body">
+            <h2 class="card-title mb-4">システム情報</h2>
+
+            <div class="space-y-3">
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">登録日時</span>
+                </label>
+                <p>2025-01-10 09:30:00</p>
+              </div>
+
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">最終更新日時</span>
+                </label>
+                <p>2025-01-15 14:20:00</p>
+              </div>
+
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">最終ログイン</span>
+                </label>
+                <p>2025-01-15 08:15:00</p>
+              </div>
+
+              <div>
+                <label class="label">
+                  <span class="label-text font-bold">作成者</span>
+                </label>
+                <p>管理者</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- アクション履歴カード -->
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title mb-4">最近のアクション</h2>
+
+            <div class="space-y-3">
+              <div class="flex items-start gap-2">
+                <div class="badge badge-primary badge-sm mt-1">更新</div>
+                <div class="flex-1">
+                  <p class="text-sm">プロフィール情報を更新</p>
+                  <p class="text-xs text-gray-500">2025-01-15 14:20</p>
+                </div>
+              </div>
+
+              <div class="flex items-start gap-2">
+                <div class="badge badge-secondary badge-sm mt-1">ログイン</div>
+                <div class="flex-1">
+                  <p class="text-sm">システムにログイン</p>
+                  <p class="text-xs text-gray-500">2025-01-15 08:15</p>
+                </div>
+              </div>
+
+              <div class="flex items-start gap-2">
+                <div class="badge badge-accent badge-sm mt-1">閲覧</div>
+                <div class="flex-1">
+                  <p class="text-sm">利用者情報を閲覧</p>
+                  <p class="text-xs text-gray-500">2025-01-14 16:30</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="card-actions justify-end mt-4">
+              <a href="#" class="link link-primary text-sm">すべて表示 →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 削除確認モーダル -->
+  <dialog id="delete_modal" class="modal">
+    <div class="modal-box">
+      <h3 class="font-bold text-lg">ユーザーの削除</h3>
+      <p class="py-4">このユーザーを削除してもよろしいですか？</p>
+      <p class="text-error text-sm mb-4">※この操作は取り消せません</p>
+      <div class="modal-action">
+        <form method="dialog">
+          <button class="btn btn-ghost mr-2">キャンセル</button>
+          <button class="btn btn-error">削除する</button>
+        </form>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+      <button>close</button>
+    </form>
+  </dialog>
+
+  <!-- フッター -->
+  <footer class="footer footer-center p-4 bg-base-300 text-base-content mt-8">
+    <aside>
+      <p>Copyright © 2025 新潟市 - All rights reserved</p>
+    </aside>
+  </footer>
+</body>
+</html>

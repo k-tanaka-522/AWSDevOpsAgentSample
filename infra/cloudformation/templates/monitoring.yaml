@@ -1,0 +1,258 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  X-Ray Watch POC - Monitoring Template
+  CloudWatch Alarms, SNS Topic
+  Version: 1.0.0
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Environment name
+
+  AlbArn:
+    Type: String
+    Description: ALB ARN
+
+  TargetGroupArn:
+    Type: String
+    Description: Target Group ARN
+
+  EcsClusterName:
+    Type: String
+    Description: ECS Cluster Name
+
+  EcsServiceName:
+    Type: String
+    Description: ECS Service Name
+
+  RdsInstanceIdentifier:
+    Type: String
+    Description: RDS Instance Identifier
+
+  AlertEmail:
+    Type: String
+    Description: Email address for alerts
+
+Resources:
+  # ==============================================================================
+  # SNS Topic
+  # ==============================================================================
+  SnsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${Environment}-alerts
+      DisplayName: X-Ray POC Alerts
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-sns-topic
+        - Key: Environment
+          Value: !Ref Environment
+
+  SnsTopicSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref SnsTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  # ==============================================================================
+  # ALB Alarms
+  # ==============================================================================
+  AlbTargetResponseTimeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${Environment}-alb-target-response-time
+      AlarmDescription: ALB target response time is too high
+      MetricName: TargetResponseTime
+      Namespace: AWS/ApplicationELB
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 0.5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Select
+            - 1
+            - !Split
+              - 'loadbalancer/'
+              - !Ref AlbArn
+      ActionsEnabled: true
+      AlarmActions:
+        - !Ref SnsTopic
+      TreatMissingData: notBreaching
+
+  AlbTarget5xxErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${Environment}-alb-target-5xx-error
+      AlarmDescription: ALB target 5xx errors are too high
+      MetricName: HTTPCode_Target_5XX_Count
+      Namespace: AWS/ApplicationELB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Select
+            - 1
+            - !Split
+              - 'loadbalancer/'
+              - !Ref AlbArn
+        - Name: TargetGroup
+          Value: !Select
+            - 1
+            - !Split
+              - 'targetgroup/'
+              - !Ref TargetGroupArn
+      ActionsEnabled: true
+      AlarmActions:
+        - !Ref SnsTopic
+      TreatMissingData: notBreaching
+
+  AlbHealthyHostCountAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${Environment}-alb-healthy-host-count
+      AlarmDescription: No healthy hosts available
+      MetricName: HealthyHostCount
+      Namespace: AWS/ApplicationELB
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Select
+            - 1
+            - !Split
+              - 'loadbalancer/'
+              - !Ref AlbArn
+        - Name: TargetGroup
+          Value: !Select
+            - 1
+            - !Split
+              - 'targetgroup/'
+              - !Ref TargetGroupArn
+      ActionsEnabled: true
+      AlarmActions:
+        - !Ref SnsTopic
+      TreatMissingData: breaching
+
+  # ==============================================================================
+  # ECS Alarms
+  # ==============================================================================
+  EcsCpuUtilizationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${Environment}-ecs-cpu-utilization
+      AlarmDescription: ECS CPU utilization is too high
+      MetricName: CPUUtilization
+      Namespace: AWS/ECS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref EcsClusterName
+        - Name: ServiceName
+          Value: !Ref EcsServiceName
+      ActionsEnabled: true
+      AlarmActions:
+        - !Ref SnsTopic
+      TreatMissingData: notBreaching
+
+  EcsMemoryUtilizationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${Environment}-ecs-memory-utilization
+      AlarmDescription: ECS memory utilization is too high
+      MetricName: MemoryUtilization
+      Namespace: AWS/ECS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref EcsClusterName
+        - Name: ServiceName
+          Value: !Ref EcsServiceName
+      ActionsEnabled: true
+      AlarmActions:
+        - !Ref SnsTopic
+      TreatMissingData: notBreaching
+
+  # ==============================================================================
+  # RDS Alarms
+  # ==============================================================================
+  RdsCpuUtilizationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${Environment}-rds-cpu-utilization
+      AlarmDescription: RDS CPU utilization is too high
+      MetricName: CPUUtilization
+      Namespace: AWS/RDS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RdsInstanceIdentifier
+      ActionsEnabled: true
+      AlarmActions:
+        - !Ref SnsTopic
+      TreatMissingData: notBreaching
+
+  RdsFreeableMemoryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${Environment}-rds-freeable-memory
+      AlarmDescription: RDS freeable memory is too low
+      MetricName: FreeableMemory
+      Namespace: AWS/RDS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 209715200
+      ComparisonOperator: LessThanThreshold
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RdsInstanceIdentifier
+      ActionsEnabled: true
+      AlarmActions:
+        - !Ref SnsTopic
+      TreatMissingData: notBreaching
+
+  RdsFreeStorageSpaceAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${Environment}-rds-free-storage-space
+      AlarmDescription: RDS free storage space is too low
+      MetricName: FreeStorageSpace
+      Namespace: AWS/RDS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 2147483648
+      ComparisonOperator: LessThanThreshold
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RdsInstanceIdentifier
+      ActionsEnabled: true
+      AlarmActions:
+        - !Ref SnsTopic
+      TreatMissingData: notBreaching
+
+Outputs:
+  SnsTopicArn:
+    Description: SNS Topic ARN for Alerts
+    Value: !Ref SnsTopic

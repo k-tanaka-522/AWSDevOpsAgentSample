@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ダッシュボード - 介護サブシステム</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.6.0/dist/full.min.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+  <!-- 目的: ダッシュボードのプロトタイプ -->
+  <!-- 影響: Coderが実装時の参考にする -->
+  <!-- 前提: Tailwind CSS + daisyUI が読み込まれている -->
+
+  <!-- ヘッダー -->
+  <div class="navbar bg-base-100 shadow-md">
+    <div class="flex-1">
+      <a href="index.html" class="btn btn-ghost text-xl">介護サブシステム</a>
+    </div>
+    <div class="flex-none">
+      <ul class="menu menu-horizontal px-1">
+        <li><a href="users-list.html">ユーザー管理</a></li>
+        <li><a>施設管理</a></li>
+        <li><a>設定</a></li>
+      </ul>
+    </div>
+    <div class="flex-none">
+      <div class="dropdown dropdown-end">
+        <label tabindex="0" class="btn btn-ghost btn-circle avatar">
+          <div class="w-10 rounded-full bg-neutral text-neutral-content">
+            <span class="text-sm">管理者</span>
+          </div>
+        </label>
+        <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+          <li><a>プロフィール</a></li>
+          <li><a>ログアウト</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- メインコンテンツ -->
+  <div class="container mx-auto p-8">
+    <h1 class="text-3xl font-bold mb-6">ダッシュボード</h1>
+
+    <!-- 統計カード -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <!-- 登録ユーザー数 -->
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-sm text-gray-500">登録ユーザー数</h2>
+          <p class="text-4xl font-bold">1,234</p>
+          <p class="text-sm text-success">↑ 5% 先月比</p>
+        </div>
+      </div>
+
+      <!-- 登録施設数 -->
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-sm text-gray-500">登録施設数</h2>
+          <p class="text-4xl font-bold">56</p>
+          <p class="text-sm text-success">↑ 2% 先月比</p>
+        </div>
+      </div>
+
+      <!-- 今月の申請数 -->
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-sm text-gray-500">今月の申請数</h2>
+          <p class="text-4xl font-bold">89</p>
+          <p class="text-sm text-error">↓ 3% 先月比</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 最近の活動 -->
+    <div class="card bg-base-100 shadow-xl mb-8">
+      <div class="card-body">
+        <h2 class="card-title mb-4">最近の活動</h2>
+        <div class="overflow-x-auto">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>日時</th>
+                <th>操作</th>
+                <th>ユーザー</th>
+                <th>詳細</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>2025-01-15 10:30</td>
+                <td><span class="badge badge-primary">新規登録</span></td>
+                <td>田中 太郎</td>
+                <td>ユーザーID: 1234</td>
+              </tr>
+              <tr>
+                <td>2025-01-15 09:15</td>
+                <td><span class="badge badge-secondary">更新</span></td>
+                <td>佐藤 花子</td>
+                <td>施設情報の変更</td>
+              </tr>
+              <tr>
+                <td>2025-01-14 16:45</td>
+                <td><span class="badge badge-error">削除</span></td>
+                <td>鈴木 一郎</td>
+                <td>ユーザーID: 5678</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card-actions justify-end mt-4">
+          <a href="#" class="link link-primary">すべて表示 →</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- クイックアクション -->
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title mb-4">クイックアクション</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <a href="users-list.html" class="btn btn-outline btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            新規ユーザー
+          </a>
+          <button class="btn btn-outline btn-secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            レポート出力
+          </button>
+          <button class="btn btn-outline">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
+            設定
+          </button>
+          <button class="btn btn-outline">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            ヘルプ
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- フッター -->
+  <footer class="footer footer-center p-4 bg-base-300 text-base-content mt-8">
+    <aside>
+      <p>Copyright © 2025 新潟市 - All rights reserved</p>
+    </aside>
+  </footer>
+</body>
+</html>

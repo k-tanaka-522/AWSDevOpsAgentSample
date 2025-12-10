@@ -1,0 +1,97 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  X-Ray Watch POC - ALB Template
+  Application Load Balancer, Target Group, Listener
+  Version: 1.0.0
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Environment name
+
+  VpcId:
+    Type: String
+    Description: VPC ID
+
+  PublicSubnet1a:
+    Type: String
+    Description: Public Subnet ID
+
+  AlbSecurityGroup:
+    Type: String
+    Description: ALB Security Group ID
+
+Resources:
+  # ==============================================================================
+  # Application Load Balancer
+  # ==============================================================================
+  Alb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${Environment}-alb
+      Scheme: internet-facing
+      Type: application
+      IpAddressType: ipv4
+      Subnets:
+        - !Ref PublicSubnet1a
+      SecurityGroups:
+        - !Ref AlbSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-alb
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # Target Group
+  # ==============================================================================
+  AlbTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${Environment}-tg
+      TargetType: ip
+      Protocol: HTTP
+      Port: 8080
+      VpcId: !Ref VpcId
+      HealthCheckEnabled: true
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '30'
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-tg
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # ALB Listener (HTTP)
+  # Note: POC uses HTTP. For production, use HTTPS with ACM certificate.
+  # ==============================================================================
+  AlbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref Alb
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref AlbTargetGroup
+
+Outputs:
+  AlbArn:
+    Description: ALB ARN
+    Value: !Ref Alb
+
+  AlbDnsName:
+    Description: ALB DNS Name
+    Value: !GetAtt Alb.DNSName
+
+  TargetGroupArn:
+    Description: Target Group ARN
+    Value: !Ref AlbTargetGroup

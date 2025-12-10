@@ -1,0 +1,62 @@
+[
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "production"
+  },
+  {
+    "ParameterKey": "VpcCidr",
+    "ParameterValue": "10.0.0.0/16"
+  },
+  {
+    "ParameterKey": "PublicSubnetCidr",
+    "ParameterValue": "10.0.1.0/24"
+  },
+  {
+    "ParameterKey": "DbSubnetCidr",
+    "ParameterValue": "10.0.21.0/24"
+  },
+  {
+    "ParameterKey": "AvailabilityZone",
+    "ParameterValue": "ap-northeast-1a"
+  },
+  {
+    "ParameterKey": "GitHubOrg",
+    "ParameterValue": "k-tanaka-522"
+  },
+  {
+    "ParameterKey": "GitHubRepo",
+    "ParameterValue": "AWSDevOpsAgentSample"
+  },
+  {
+    "ParameterKey": "DBInstanceClass",
+    "ParameterValue": "db.t4g.micro"
+  },
+  {
+    "ParameterKey": "DBAllocatedStorage",
+    "ParameterValue": "20"
+  },
+  {
+    "ParameterKey": "DBBackupRetentionPeriod",
+    "ParameterValue": "7"
+  },
+  {
+    "ParameterKey": "ECSTaskCpu",
+    "ParameterValue": "256"
+  },
+  {
+    "ParameterKey": "ECSTaskMemory",
+    "ParameterValue": "512"
+  },
+  {
+    "ParameterKey": "ECSDesiredCount",
+    "ParameterValue": "1"
+  },
+  {
+    "ParameterKey": "ECSAssignPublicIp",
+    "ParameterValue": "ENABLED"
+  },
+  {
+    "ParameterKey": "AlertEmail",
+    "ParameterValue": "your-email@example.com"
+  }
+]

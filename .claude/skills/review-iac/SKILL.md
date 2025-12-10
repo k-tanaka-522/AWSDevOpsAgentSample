@@ -1,0 +1,51 @@
+---
+name: review-iac
+description: >
+  IaC（Infrastructure as Code）のクロスレビュー。
+  SRE が作成した CloudFormation/Terraform コードを Infra-Architect がレビュー。
+  実装フェーズ完了後、PMがレビューを委譲した際に使用。
+allowed-tools:
+  - Read
+  - Glob
+---
+
+# IaC レビュースキル
+
+## 概要
+
+IaCコード（`infra/cloudformation/` または `infra/terraform/`）のクロスレビューを実施。
+
+## レビュアー
+
+| レビュアー | 観点 | チェックリスト |
+|-----------|------|---------------|
+| Infra-Architect | 設計整合・ベストプラクティス | `checklist/infra-architect.md` |
+
+## 使用方法
+
+PMからTask委譲を受けた際、チェックリストを参照してレビューを実施。
+
+## 出力形式
+
+```markdown
+## レビュー結果
+
+### 基本情報
+- 対象: {ファイルパス}
+- レビュアー: Infra-Architect
+- 結果: approved / approved_with_comments / rejected
+
+### チェックリスト
+| 項目 | 状態 | 備考 |
+|------|------|------|
+| {項目1} | pass/warn/fail | {備考} |
+
+### フィードバック
+#### 良い点
+- {良い点}
+
+#### 改善が必要な点
+- 箇所: {ファイル:行番号}
+- 問題: {具体的な問題}
+- 提案: {改善案}
+```

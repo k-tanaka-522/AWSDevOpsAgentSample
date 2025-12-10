@@ -1,0 +1,342 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  X-Ray Watch POC - Security Stack (01-security)
+  Security Groups, IAM Roles, GitHub OIDC Provider
+  Version: 1.0.0
+  Last Updated: 2025-12-10
+
+Metadata:
+  Version: 1.0.0
+  Author: SRE Team
+  ChangeLog:
+    - '2025-12-10: Initial release'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues:
+      - production
+      - development
+    Description: Environment name
+
+  BaseStackName:
+    Type: String
+    Default: xray-poc-base
+    Description: Network Stack name
+
+  GitHubOrg:
+    Type: String
+    Default: k-tanaka-522
+    Description: GitHub organization name
+
+  GitHubRepo:
+    Type: String
+    Default: AWSDevOpsAgentSample
+    Description: GitHub repository name
+
+Resources:
+  # ==============================================================================
+  # Security Groups
+  # ==============================================================================
+
+  # ------------------------------------------------------------------------------
+  # ALB Security Group
+  # ------------------------------------------------------------------------------
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${AWS::StackName}-alb-sg
+      GroupDescription: Security group for ALB
+      VpcId:
+        Fn::ImportValue: !Sub ${BaseStackName}-VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS from Internet
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP from Internet (POC only)
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-alb-sg
+        - Key: Environment
+          Value: !Ref Environment
+
+  AlbToEcsEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref AlbSecurityGroup
+      IpProtocol: tcp
+      FromPort: 8080
+      ToPort: 8080
+      DestinationSecurityGroupId: !Ref EcsSecurityGroup
+      Description: HTTP to ECS
+
+  # ------------------------------------------------------------------------------
+  # ECS Security Group
+  # ------------------------------------------------------------------------------
+  EcsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${AWS::StackName}-ecs-sg
+      GroupDescription: Security group for ECS
+      VpcId:
+        Fn::ImportValue: !Sub ${BaseStackName}-VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-ecs-sg
+        - Key: Environment
+          Value: !Ref Environment
+
+  EcsFromAlbIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref EcsSecurityGroup
+      IpProtocol: tcp
+      FromPort: 8080
+      ToPort: 8080
+      SourceSecurityGroupId: !Ref AlbSecurityGroup
+      Description: HTTP from ALB
+
+  EcsToRdsEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref EcsSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      DestinationSecurityGroupId: !Ref RdsSecurityGroup
+      Description: PostgreSQL to RDS
+
+  EcsToInternetEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref EcsSecurityGroup
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      CidrIp: 0.0.0.0/0
+      Description: HTTPS to AWS APIs (ECR, X-Ray, CloudWatch, DevOps Agent)
+
+  # ------------------------------------------------------------------------------
+  # RDS Security Group
+  # ------------------------------------------------------------------------------
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${AWS::StackName}-rds-sg
+      GroupDescription: Security group for RDS
+      VpcId:
+        Fn::ImportValue: !Sub ${BaseStackName}-VpcId
+      SecurityGroupEgress: []
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-rds-sg
+        - Key: Environment
+          Value: !Ref Environment
+
+  RdsFromEcsIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref RdsSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !Ref EcsSecurityGroup
+      Description: PostgreSQL from ECS
+
+  # ==============================================================================
+  # IAM Roles
+  # ==============================================================================
+
+  # ------------------------------------------------------------------------------
+  # ECS Task Execution Role
+  # ------------------------------------------------------------------------------
+  EcsTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-ecs-task-execution-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-ecs-task-execution-role
+        - Key: Environment
+          Value: !Ref Environment
+
+  EcsTaskExecutionPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${AWS::StackName}-ecs-task-execution-policy
+      Roles:
+        - !Ref EcsTaskExecutionRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SecretsManagerAccess
+            Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:xray-poc/*
+
+  # ------------------------------------------------------------------------------
+  # ECS Task Role
+  # ------------------------------------------------------------------------------
+  EcsTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-ecs-task-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-ecs-task-role
+        - Key: Environment
+          Value: !Ref Environment
+
+  EcsTaskPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${AWS::StackName}-ecs-task-policy
+      Roles:
+        - !Ref EcsTaskRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: XRayAccess
+            Effect: Allow
+            Action:
+              - xray:PutTraceSegments
+              - xray:PutTelemetryRecords
+            Resource: '*'
+          - Sid: CloudWatchAccess
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - cloudwatch:PutMetricData
+            Resource: '*'
+          - Sid: RDSAccess
+            Effect: Allow
+            Action:
+              - rds-db:connect
+            Resource: !Sub arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:*/app_user
+
+  # ------------------------------------------------------------------------------
+  # GitHub Actions Role
+  # NOTE: GitHub OIDC Provider already exists in this AWS account
+  # Using existing ARN: arn:aws:iam::897167645238:oidc-provider/token.actions.githubusercontent.com
+  # ------------------------------------------------------------------------------
+  GitHubActionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-github-actions-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: arn:aws:iam::897167645238:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOrg}/${GitHubRepo}:*
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-github-actions-role
+        - Key: Environment
+          Value: !Ref Environment
+
+  GitHubActionsPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${AWS::StackName}-github-actions-policy
+      Roles:
+        - !Ref GitHubActionsRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ECRPushAccess
+            Effect: Allow
+            Action:
+              - ecr:GetAuthorizationToken
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+              - ecr:PutImage
+              - ecr:InitiateLayerUpload
+              - ecr:UploadLayerPart
+              - ecr:CompleteLayerUpload
+            Resource: '*'
+          - Sid: ECSDeployAccess
+            Effect: Allow
+            Action:
+              - ecs:UpdateService
+              - ecs:DescribeServices
+              - ecs:DescribeTaskDefinition
+              - ecs:RegisterTaskDefinition
+            Resource: '*'
+          - Sid: PassRoleToECS
+            Effect: Allow
+            Action:
+              - iam:PassRole
+            Resource:
+              - !GetAtt EcsTaskExecutionRole.Arn
+              - !GetAtt EcsTaskRole.Arn
+
+Outputs:
+  AlbSecurityGroup:
+    Description: ALB Security Group ID
+    Value: !Ref AlbSecurityGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-AlbSecurityGroup
+
+  EcsSecurityGroup:
+    Description: ECS Security Group ID
+    Value: !Ref EcsSecurityGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-EcsSecurityGroup
+
+  RdsSecurityGroup:
+    Description: RDS Security Group ID
+    Value: !Ref RdsSecurityGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-RdsSecurityGroup
+
+  EcsTaskExecutionRoleArn:
+    Description: ECS Task Execution Role ARN
+    Value: !GetAtt EcsTaskExecutionRole.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-EcsTaskExecutionRoleArn
+
+  EcsTaskRoleArn:
+    Description: ECS Task Role ARN
+    Value: !GetAtt EcsTaskRole.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-EcsTaskRoleArn
+
+  GitHubActionsRoleArn:
+    Description: GitHub Actions Role ARN
+    Value: !GetAtt GitHubActionsRole.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-GitHubActionsRoleArn

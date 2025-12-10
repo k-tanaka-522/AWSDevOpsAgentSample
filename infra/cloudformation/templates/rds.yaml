@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  X-Ray Watch POC - RDS Template
+  RDS PostgreSQL, Secrets Manager, DB Subnet Group
+  Version: 1.0.0
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Environment name
+
+  DbSubnet1a:
+    Type: String
+    Description: Database Subnet ID
+
+  RdsSecurityGroup:
+    Type: String
+    Description: RDS Security Group ID
+
+  DBInstanceClass:
+    Type: String
+    Default: db.t4g.micro
+    Description: RDS instance class
+
+  DBAllocatedStorage:
+    Type: Number
+    Default: 20
+    Description: Storage capacity (GB)
+
+  DBEngine:
+    Type: String
+    Default: postgres
+    Description: DB engine
+
+  DBEngineVersion:
+    Type: String
+    Default: '15.4'
+    Description: PostgreSQL version
+
+  DBName:
+    Type: String
+    Default: xray_poc_db
+    Description: Database name
+
+  DBMasterUsername:
+    Type: String
+    Default: postgres
+    Description: Master username
+
+  DBBackupRetentionPeriod:
+    Type: Number
+    Default: 7
+    Description: Backup retention period (days)
+
+Resources:
+  # ==============================================================================
+  # DB Subnet Group
+  # ==============================================================================
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: !Sub ${Environment}-db-subnet-group
+      DBSubnetGroupDescription: Subnet group for RDS PostgreSQL
+      SubnetIds:
+        - !Ref DbSubnet1a
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-db-subnet-group
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # Secrets Manager
+  # ==============================================================================
+  DBSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${Environment}/db/password
+      Description: RDS PostgreSQL master password
+      GenerateSecretString:
+        SecretStringTemplate: !Sub '{"username": "${DBMasterUsername}"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludePunctuation: true
+        ExcludeCharacters: '"@/\'
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-db-secret
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # DB Parameter Group
+  # ==============================================================================
+  DBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      DBParameterGroupName: !Sub ${Environment}-postgres15-params
+      Description: Custom parameter group for PostgreSQL 15
+      Family: postgres15
+      Parameters:
+        rds.force_ssl: '1'
+        log_statement: ddl
+        log_min_duration_statement: '1000'
+        shared_preload_libraries: pg_stat_statements
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-postgres15-params
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # RDS PostgreSQL
+  # ==============================================================================
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub ${Environment}-rds
+      Engine: !Ref DBEngine
+      EngineVersion: !Ref DBEngineVersion
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: !Ref DBAllocatedStorage
+      StorageType: gp3
+      StorageEncrypted: true
+      MultiAZ: false
+      PubliclyAccessible: false
+      MasterUsername: !Ref DBMasterUsername
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:password}}'
+      DBName: !Ref DBName
+      VPCSecurityGroups:
+        - !Ref RdsSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      DBParameterGroupName: !Ref DBParameterGroup
+      BackupRetentionPeriod: !Ref DBBackupRetentionPeriod
+      PreferredBackupWindow: 18:00-19:00
+      PreferredMaintenanceWindow: sun:19:00-sun:20:00
+      EnableCloudwatchLogsExports:
+        - postgresql
+      AutoMinorVersionUpgrade: true
+      DeletionProtection: false
+      CopyTagsToSnapshot: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-rds
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  RdsEndpoint:
+    Description: RDS Endpoint Address
+    Value: !GetAtt DBInstance.Endpoint.Address
+
+  RdsPort:
+    Description: RDS Endpoint Port
+    Value: !GetAtt DBInstance.Endpoint.Port
+
+  DbSecretArn:
+    Description: Secrets Manager ARN for DB Password
+    Value: !Ref DBSecret

@@ -1,0 +1,80 @@
+# Docker Compose - ローカル開発環境
+#
+# 目的・理由:
+# - ローカル開発環境でX-Ray Watch POCを実行
+# - PostgreSQL + X-Ray Daemon + FastAPIを統合
+# - ECS環境と同等の構成をローカルで再現
+#
+# 影響範囲:
+# - ローカル開発環境のみ
+#
+# 前提条件・制約:
+# - Docker/Docker Composeがインストールされていること
+# - AWS認証情報が設定されていること（X-Rayトレース送信用）
+
+version: '3.8'
+
+services:
+  # PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: xray-watch-postgres
+    environment:
+      POSTGRES_DB: xray_watch
+      POSTGRES_USER: xray_user
+      POSTGRES_PASSWORD: xray_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xray_user -d xray_watch"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # X-Ray Daemon
+  xray-daemon:
+    image: amazon/aws-xray-daemon:latest
+    container_name: xray-watch-xray-daemon
+    ports:
+      - "2000:2000/udp"
+    environment:
+      AWS_REGION: ap-northeast-1
+      # ローカル開発用にAWS認証情報を渡す
+      # 本番ではECSタスクロールを使用
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
+    command:
+      - "-o"
+      - "--log-level"
+      - "info"
+
+  # FastAPIアプリケーション
+  app:
+    build:
+      context: ./src/app
+      dockerfile: Dockerfile
+    container_name: xray-watch-app
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://xray_user:xray_password@postgres:5432/xray_watch
+      XRAY_DAEMON_ADDRESS: xray-daemon:2000
+      ENVIRONMENT: development
+      VERSION: 1.0.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      xray-daemon:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  postgres_data:

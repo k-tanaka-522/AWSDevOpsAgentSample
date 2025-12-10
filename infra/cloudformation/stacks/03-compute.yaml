@@ -1,0 +1,360 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  X-Ray Watch POC - Compute Stack (03-compute)
+  ECR, ECS Cluster/Service, ALB, Target Group
+  Version: 1.0.0
+  Last Updated: 2025-12-10
+
+Metadata:
+  Version: 1.0.0
+  Author: SRE Team
+  ChangeLog:
+    - '2025-12-10: Initial release'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues:
+      - production
+      - development
+    Description: Environment name
+
+  BaseStackName:
+    Type: String
+    Default: xray-poc-base
+    Description: Network Stack name
+
+  SecurityStackName:
+    Type: String
+    Default: xray-poc-security
+    Description: Security Stack name
+
+  DatabaseStackName:
+    Type: String
+    Default: xray-poc-database
+    Description: Database Stack name
+
+  ECSTaskCpu:
+    Type: Number
+    Default: 256
+    AllowedValues:
+      - 256
+      - 512
+      - 1024
+    Description: ECS Task CPU (256 = 0.25vCPU)
+
+  ECSTaskMemory:
+    Type: Number
+    Default: 512
+    AllowedValues:
+      - 512
+      - 1024
+      - 2048
+    Description: ECS Task Memory (512 = 0.5GB)
+
+  ECSDesiredCount:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 10
+    Description: Number of ECS tasks
+
+  ECSAssignPublicIp:
+    Type: String
+    Default: ENABLED
+    AllowedValues:
+      - ENABLED
+      - DISABLED
+    Description: Assign public IP to ECS tasks
+
+  ContainerImage:
+    Type: String
+    Default: public.ecr.aws/nginx/nginx:latest
+    Description: Initial container image (will be replaced by ECR image)
+
+Resources:
+  # ==============================================================================
+  # ECR Repository
+  # ==============================================================================
+  EcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub ${AWS::StackName}-app
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-ecr-repo
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # ECS Cluster
+  # ==============================================================================
+  EcsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub ${AWS::StackName}-cluster
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-cluster
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # CloudWatch Logs Group
+  # ==============================================================================
+  EcsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /ecs/${AWS::StackName}
+      RetentionInDays: 7
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-ecs-logs
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # ECS Task Definition
+  # ==============================================================================
+  EcsTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${AWS::StackName}-task
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: !Ref ECSTaskCpu
+      Memory: !Ref ECSTaskMemory
+      TaskRoleArn:
+        Fn::ImportValue: !Sub ${SecurityStackName}-EcsTaskRoleArn
+      ExecutionRoleArn:
+        Fn::ImportValue: !Sub ${SecurityStackName}-EcsTaskExecutionRoleArn
+      ContainerDefinitions:
+        # Container 1: Application
+        - Name: app
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepository}:latest
+          Cpu: 200
+          Memory: 384
+          MemoryReservation: 384
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8080
+              Protocol: tcp
+          Environment:
+            - Name: AWS_XRAY_DAEMON_ADDRESS
+              Value: localhost:2000
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            - Name: DB_HOST
+              Value:
+                Fn::ImportValue: !Sub ${DatabaseStackName}-RdsEndpoint
+            - Name: DB_PORT
+              Value:
+                Fn::ImportValue: !Sub ${DatabaseStackName}-RdsPort
+            - Name: DB_NAME
+              Value: xray_poc_db
+            - Name: DB_USER
+              Value: app_user
+            - Name: LOG_LEVEL
+              Value: INFO
+          Secrets:
+            - Name: DB_PASSWORD
+              ValueFrom:
+                Fn::ImportValue: !Sub ${DatabaseStackName}-DbSecretArn
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref EcsLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: app
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - curl -f http://localhost:8080/health || exit 1
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+
+        # Container 2: X-Ray Daemon
+        - Name: xray-daemon
+          Image: public.ecr.aws/xray/aws-xray-daemon:latest
+          Cpu: 56
+          Memory: 64
+          MemoryReservation: 64
+          Essential: false
+          PortMappings:
+            - ContainerPort: 2000
+              Protocol: udp
+          Environment:
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref EcsLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: xray-daemon
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-task
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # Application Load Balancer
+  # ==============================================================================
+  Alb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${AWS::StackName}-alb
+      Scheme: internet-facing
+      Type: application
+      IpAddressType: ipv4
+      Subnets:
+        - Fn::ImportValue: !Sub ${BaseStackName}-PublicSubnet1a
+      SecurityGroups:
+        - Fn::ImportValue: !Sub ${SecurityStackName}-AlbSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-alb
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # Target Group
+  # ==============================================================================
+  AlbTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${AWS::StackName}-tg
+      TargetType: ip
+      Protocol: HTTP
+      Port: 8080
+      VpcId:
+        Fn::ImportValue: !Sub ${BaseStackName}-VpcId
+      HealthCheckEnabled: true
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '30'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-tg
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # ALB Listener (HTTP for POC)
+  # ==============================================================================
+  AlbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref Alb
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref AlbTargetGroup
+
+  # ==============================================================================
+  # ECS Service
+  # ==============================================================================
+  EcsService:
+    Type: AWS::ECS::Service
+    DependsOn: AlbListener
+    Properties:
+      ServiceName: !Sub ${AWS::StackName}-service
+      Cluster: !Ref EcsCluster
+      TaskDefinition: !Ref EcsTaskDefinition
+      LaunchType: FARGATE
+      DesiredCount: !Ref ECSDesiredCount
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+        MaximumPercent: 200
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - Fn::ImportValue: !Sub ${BaseStackName}-PublicSubnet1a
+          SecurityGroups:
+            - Fn::ImportValue: !Sub ${SecurityStackName}-EcsSecurityGroup
+          AssignPublicIp: !Ref ECSAssignPublicIp
+      LoadBalancers:
+        - TargetGroupArn: !Ref AlbTargetGroup
+          ContainerName: app
+          ContainerPort: 8080
+      HealthCheckGracePeriodSeconds: 60
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-service
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  EcsClusterName:
+    Description: ECS Cluster Name
+    Value: !Ref EcsCluster
+    Export:
+      Name: !Sub ${AWS::StackName}-EcsClusterName
+
+  EcsServiceName:
+    Description: ECS Service Name
+    Value: !GetAtt EcsService.Name
+    Export:
+      Name: !Sub ${AWS::StackName}-EcsServiceName
+
+  AlbArn:
+    Description: ALB ARN
+    Value: !Ref Alb
+    Export:
+      Name: !Sub ${AWS::StackName}-AlbArn
+
+  AlbDnsName:
+    Description: ALB DNS Name
+    Value: !GetAtt Alb.DNSName
+    Export:
+      Name: !Sub ${AWS::StackName}-AlbDnsName
+
+  TargetGroupArn:
+    Description: Target Group ARN
+    Value: !Ref AlbTargetGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-TargetGroupArn
+
+  EcrRepositoryUri:
+    Description: ECR Repository URI
+    Value: !GetAtt EcrRepository.RepositoryUri
+    Export:
+      Name: !Sub ${AWS::StackName}-EcrRepositoryUri

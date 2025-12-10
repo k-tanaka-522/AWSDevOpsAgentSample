@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  X-Ray Watch POC - Security Groups Template
+  ALB, ECS, RDS Security Groups
+  Version: 1.0.0
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Environment name
+
+  VpcId:
+    Type: String
+    Description: VPC ID
+
+Resources:
+  # ==============================================================================
+  # ALB Security Group
+  # ==============================================================================
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${Environment}-alb-sg
+      GroupDescription: Security group for ALB
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS from Internet
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-alb-sg
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # ECS Security Group
+  # ==============================================================================
+  EcsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${Environment}-ecs-sg
+      GroupDescription: Security group for ECS
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-ecs-sg
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # RDS Security Group
+  # ==============================================================================
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${Environment}-rds-sg
+      GroupDescription: Security group for RDS
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-rds-sg
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # Security Group Rules
+  # ==============================================================================
+  AlbToEcsEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref AlbSecurityGroup
+      IpProtocol: tcp
+      FromPort: 8080
+      ToPort: 8080
+      DestinationSecurityGroupId: !Ref EcsSecurityGroup
+      Description: HTTP to ECS
+
+  EcsFromAlbIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref EcsSecurityGroup
+      IpProtocol: tcp
+      FromPort: 8080
+      ToPort: 8080
+      SourceSecurityGroupId: !Ref AlbSecurityGroup
+      Description: HTTP from ALB
+
+  EcsToRdsEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref EcsSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      DestinationSecurityGroupId: !Ref RdsSecurityGroup
+      Description: PostgreSQL to RDS
+
+  EcsToInternetEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref EcsSecurityGroup
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      CidrIp: 0.0.0.0/0
+      Description: HTTPS to AWS APIs (ECR, X-Ray, CloudWatch, DevOps Agent)
+
+  RdsFromEcsIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref RdsSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !Ref EcsSecurityGroup
+      Description: PostgreSQL from ECS
+
+Outputs:
+  AlbSecurityGroup:
+    Description: ALB Security Group ID
+    Value: !Ref AlbSecurityGroup
+
+  EcsSecurityGroup:
+    Description: ECS Security Group ID
+    Value: !Ref EcsSecurityGroup
+
+  RdsSecurityGroup:
+    Description: RDS Security Group ID
+    Value: !Ref RdsSecurityGroup

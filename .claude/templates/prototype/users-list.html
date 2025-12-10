@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ユーザー一覧 - 介護サブシステム</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.6.0/dist/full.min.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+  <!-- 目的: ユーザー一覧画面のプロトタイプ -->
+  <!-- 影響: Coderが実装時の参考にする -->
+  <!-- 前提: Tailwind CSS + daisyUI が読み込まれている -->
+
+  <!-- ヘッダー -->
+  <div class="navbar bg-base-100 shadow-md">
+    <div class="flex-1">
+      <a href="index.html" class="btn btn-ghost text-xl">介護サブシステム</a>
+    </div>
+    <div class="flex-none">
+      <ul class="menu menu-horizontal px-1">
+        <li><a href="users-list.html" class="active">ユーザー管理</a></li>
+        <li><a>施設管理</a></li>
+        <li><a>設定</a></li>
+      </ul>
+    </div>
+    <div class="flex-none">
+      <div class="dropdown dropdown-end">
+        <label tabindex="0" class="btn btn-ghost btn-circle avatar">
+          <div class="w-10 rounded-full bg-neutral text-neutral-content">
+            <span class="text-sm">管理者</span>
+          </div>
+        </label>
+        <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+          <li><a>プロフィール</a></li>
+          <li><a>ログアウト</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- メインコンテンツ -->
+  <div class="container mx-auto p-8">
+    <!-- パンくずリスト -->
+    <div class="text-sm breadcrumbs mb-4">
+      <ul>
+        <li><a href="index.html">ホーム</a></li>
+        <li>ユーザー管理</li>
+        <li>ユーザー一覧</li>
+      </ul>
+    </div>
+
+    <h1 class="text-3xl font-bold mb-6">ユーザー一覧</h1>
+
+    <!-- 検索・フィルターエリア -->
+    <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body">
+        <h2 class="card-title mb-4">検索・フィルター</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- 氏名検索 -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">氏名</span>
+            </label>
+            <input type="text" placeholder="山田 太郎" class="input input-bordered" />
+          </div>
+
+          <!-- メールアドレス検索 -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">メールアドレス</span>
+            </label>
+            <input type="email" placeholder="example@example.com" class="input input-bordered" />
+          </div>
+
+          <!-- ステータス -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">ステータス</span>
+            </label>
+            <select class="select select-bordered">
+              <option value="">すべて</option>
+              <option value="active">有効</option>
+              <option value="inactive">無効</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="card-actions justify-end mt-4">
+          <button class="btn btn-ghost">クリア</button>
+          <button class="btn btn-primary">検索</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- アクションバー -->
+    <div class="flex justify-between items-center mb-4">
+      <div>
+        <span class="text-gray-600">全 234 件</span>
+      </div>
+      <div>
+        <button class="btn btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          新規登録
+        </button>
+      </div>
+    </div>
+
+    <!-- ユーザー一覧テーブル -->
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <div class="overflow-x-auto">
+          <table class="table table-zebra w-full">
+            <thead>
+              <tr>
+                <th>
+                  <label>
+                    <input type="checkbox" class="checkbox" />
+                  </label>
+                </th>
+                <th>ID</th>
+                <th>氏名</th>
+                <th>メールアドレス</th>
+                <th>施設</th>
+                <th>ステータス</th>
+                <th>登録日</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>
+                  <label>
+                    <input type="checkbox" class="checkbox" />
+                  </label>
+                </th>
+                <td>1234</td>
+                <td>
+                  <div class="flex items-center space-x-3">
+                    <div class="avatar placeholder">
+                      <div class="bg-neutral text-neutral-content rounded-full w-8">
+                        <span class="text-xs">田</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="font-bold">田中 太郎</div>
+                    </div>
+                  </div>
+                </td>
+                <td>tanaka@example.com</td>
+                <td>新潟市介護施設A</td>
+                <td><span class="badge badge-success">有効</span></td>
+                <td>2025-01-10</td>
+                <td>
+                  <div class="flex gap-2">
+                    <a href="user-detail.html" class="btn btn-sm btn-ghost">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    </a>
+                    <a href="user-edit.html" class="btn btn-sm btn-ghost">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <th>
+                  <label>
+                    <input type="checkbox" class="checkbox" />
+                  </label>
+                </th>
+                <td>5678</td>
+                <td>
+                  <div class="flex items-center space-x-3">
+                    <div class="avatar placeholder">
+                      <div class="bg-neutral text-neutral-content rounded-full w-8">
+                        <span class="text-xs">佐</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="font-bold">佐藤 花子</div>
+                    </div>
+                  </div>
+                </td>
+                <td>sato@example.com</td>
+                <td>新潟市介護施設B</td>
+                <td><span class="badge badge-success">有効</span></td>
+                <td>2025-01-08</td>
+                <td>
+                  <div class="flex gap-2">
+                    <a href="user-detail.html" class="btn btn-sm btn-ghost">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    </a>
+                    <a href="user-edit.html" class="btn btn-sm btn-ghost">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <th>
+                  <label>
+                    <input type="checkbox" class="checkbox" />
+                  </label>
+                </th>
+                <td>9012</td>
+                <td>
+                  <div class="flex items-center space-x-3">
+                    <div class="avatar placeholder">
+                      <div class="bg-neutral text-neutral-content rounded-full w-8">
+                        <span class="text-xs">鈴</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="font-bold">鈴木 一郎</div>
+                    </div>
+                  </div>
+                </td>
+                <td>suzuki@example.com</td>
+                <td>新潟市介護施設C</td>
+                <td><span class="badge badge-error">無効</span></td>
+                <td>2024-12-20</td>
+                <td>
+                  <div class="flex gap-2">
+                    <a href="user-detail.html" class="btn btn-sm btn-ghost">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    </a>
+                    <a href="user-edit.html" class="btn btn-sm btn-ghost">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ページネーション -->
+        <div class="flex justify-center mt-6">
+          <div class="join">
+            <button class="join-item btn btn-disabled">«</button>
+            <button class="join-item btn btn-active">1</button>
+            <button class="join-item btn">2</button>
+            <button class="join-item btn">3</button>
+            <button class="join-item btn">4</button>
+            <button class="join-item btn">»</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- フッター -->
+  <footer class="footer footer-center p-4 bg-base-300 text-base-content mt-8">
+    <aside>
+      <p>Copyright © 2025 新潟市 - All rights reserved</p>
+    </aside>
+  </footer>
+</body>
+</html>

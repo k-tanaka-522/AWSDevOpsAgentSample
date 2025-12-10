@@ -1,0 +1,157 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  X-Ray Watch POC - VPC Template
+  VPC, Subnets, Internet Gateway, Route Tables
+  Version: 1.0.0
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Environment name
+
+  VpcCidr:
+    Type: String
+    Description: VPC CIDR block
+
+  PublicSubnetCidr:
+    Type: String
+    Description: Public Subnet CIDR
+
+  DbSubnetCidr:
+    Type: String
+    Description: Database Subnet CIDR
+
+  AvailabilityZone:
+    Type: String
+    Description: Availability Zone
+
+Resources:
+  # ==============================================================================
+  # VPC
+  # ==============================================================================
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-vpc
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # Internet Gateway
+  # ==============================================================================
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-igw
+        - Key: Environment
+          Value: !Ref Environment
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # ==============================================================================
+  # Subnets
+  # ==============================================================================
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnetCidr
+      AvailabilityZone: !Ref AvailabilityZone
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-public-1a
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Type
+          Value: Public
+
+  DbSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref DbSubnetCidr
+      AvailabilityZone: !Ref AvailabilityZone
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-db-1a
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Type
+          Value: Database
+
+  # ==============================================================================
+  # Route Tables
+  # ==============================================================================
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-public-rt
+        - Key: Environment
+          Value: !Ref Environment
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  DbRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-db-rt
+        - Key: Environment
+          Value: !Ref Environment
+
+  DbSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref DbSubnet
+      RouteTableId: !Ref DbRouteTable
+
+Outputs:
+  VpcId:
+    Description: VPC ID
+    Value: !Ref VPC
+
+  PublicSubnet1a:
+    Description: Public Subnet ID (ap-northeast-1a)
+    Value: !Ref PublicSubnet
+
+  DbSubnet1a:
+    Description: Database Subnet ID (ap-northeast-1a)
+    Value: !Ref DbSubnet
+
+  PublicRouteTable:
+    Description: Public Route Table ID
+    Value: !Ref PublicRouteTable
+
+  DbRouteTable:
+    Description: Database Route Table ID
+    Value: !Ref DbRouteTable

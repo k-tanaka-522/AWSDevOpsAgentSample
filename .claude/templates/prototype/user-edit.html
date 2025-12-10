@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ユーザー編集 - 介護サブシステム</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.6.0/dist/full.min.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+  <!-- 目的: ユーザー編集画面のプロトタイプ -->
+  <!-- 影響: Coderが実装時の参考にする -->
+  <!-- 前提: Tailwind CSS + daisyUI が読み込まれている -->
+
+  <!-- ヘッダー -->
+  <div class="navbar bg-base-100 shadow-md">
+    <div class="flex-1">
+      <a href="index.html" class="btn btn-ghost text-xl">介護サブシステム</a>
+    </div>
+    <div class="flex-none">
+      <ul class="menu menu-horizontal px-1">
+        <li><a href="users-list.html" class="active">ユーザー管理</a></li>
+        <li><a>施設管理</a></li>
+        <li><a>設定</a></li>
+      </ul>
+    </div>
+    <div class="flex-none">
+      <div class="dropdown dropdown-end">
+        <label tabindex="0" class="btn btn-ghost btn-circle avatar">
+          <div class="w-10 rounded-full bg-neutral text-neutral-content">
+            <span class="text-sm">管理者</span>
+          </div>
+        </label>
+        <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+          <li><a>プロフィール</a></li>
+          <li><a>ログアウト</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- メインコンテンツ -->
+  <div class="container mx-auto p-8">
+    <!-- パンくずリスト -->
+    <div class="text-sm breadcrumbs mb-4">
+      <ul>
+        <li><a href="index.html">ホーム</a></li>
+        <li><a href="users-list.html">ユーザー一覧</a></li>
+        <li><a href="user-detail.html">ユーザー詳細</a></li>
+        <li>編集</li>
+      </ul>
+    </div>
+
+    <!-- ヘッダーアクション -->
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-bold">ユーザー編集</h1>
+      <a href="user-detail.html" class="btn btn-ghost">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+        キャンセル
+      </a>
+    </div>
+
+    <form>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- 左カラム: メインフォーム -->
+        <div class="lg:col-span-2">
+          <!-- 基本情報 -->
+          <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+              <h2 class="card-title mb-4">基本情報</h2>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- ユーザーID（読み取り専用） -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">ユーザーID</span>
+                  </label>
+                  <input type="text" value="1234" class="input input-bordered" disabled />
+                </div>
+
+                <!-- ステータス -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">ステータス <span class="text-error">*</span></span>
+                  </label>
+                  <select class="select select-bordered" required>
+                    <option value="active" selected>有効</option>
+                    <option value="inactive">無効</option>
+                  </select>
+                </div>
+
+                <!-- 氏名（姓） -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">氏名（姓）<span class="text-error">*</span></span>
+                  </label>
+                  <input type="text" value="田中" placeholder="山田" class="input input-bordered" required />
+                </div>
+
+                <!-- 氏名（名） -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">氏名（名）<span class="text-error">*</span></span>
+                  </label>
+                  <input type="text" value="太郎" placeholder="太郎" class="input input-bordered" required />
+                </div>
+
+                <!-- 氏名カナ（姓） -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">氏名カナ（姓）<span class="text-error">*</span></span>
+                  </label>
+                  <input type="text" value="タナカ" placeholder="ヤマダ" class="input input-bordered" required />
+                </div>
+
+                <!-- 氏名カナ（名） -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">氏名カナ（名）<span class="text-error">*</span></span>
+                  </label>
+                  <input type="text" value="タロウ" placeholder="タロウ" class="input input-bordered" required />
+                </div>
+
+                <!-- メールアドレス -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">メールアドレス <span class="text-error">*</span></span>
+                  </label>
+                  <input type="email" value="tanaka@example.com" placeholder="example@example.com" class="input input-bordered" required />
+                  <label class="label">
+                    <span class="label-text-alt">ログインIDとして使用されます</span>
+                  </label>
+                </div>
+
+                <!-- 電話番号 -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">電話番号 <span class="text-error">*</span></span>
+                  </label>
+                  <input type="tel" value="090-1234-5678" placeholder="090-1234-5678" class="input input-bordered" required />
+                </div>
+
+                <!-- 生年月日 -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">生年月日 <span class="text-error">*</span></span>
+                  </label>
+                  <input type="date" value="1980-04-15" class="input input-bordered" required />
+                </div>
+
+                <!-- 性別 -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">性別 <span class="text-error">*</span></span>
+                  </label>
+                  <select class="select select-bordered" required>
+                    <option value="">選択してください</option>
+                    <option value="male" selected>男性</option>
+                    <option value="female">女性</option>
+                    <option value="other">その他</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 所属情報 -->
+          <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+              <h2 class="card-title mb-4">所属情報</h2>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- 所属施設 -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">所属施設 <span class="text-error">*</span></span>
+                  </label>
+                  <select class="select select-bordered" required>
+                    <option value="">選択してください</option>
+                    <option value="1" selected>新潟市介護施設A</option>
+                    <option value="2">新潟市介護施設B</option>
+                    <option value="3">新潟市介護施設C</option>
+                  </select>
+                </div>
+
+                <!-- 部署 -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">部署 <span class="text-error">*</span></span>
+                  </label>
+                  <input type="text" value="介護サービス部" placeholder="介護サービス部" class="input input-bordered" required />
+                </div>
+
+                <!-- 役職 -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">役職</span>
+                  </label>
+                  <input type="text" value="介護職員" placeholder="介護職員" class="input input-bordered" />
+                </div>
+
+                <!-- 雇用形態 -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">雇用形態 <span class="text-error">*</span></span>
+                  </label>
+                  <select class="select select-bordered" required>
+                    <option value="">選択してください</option>
+                    <option value="fulltime" selected>正社員</option>
+                    <option value="parttime">パート</option>
+                    <option value="contract">契約社員</option>
+                  </select>
+                </div>
+
+                <!-- 保有資格 -->
+                <div class="form-control md:col-span-2">
+                  <label class="label">
+                    <span class="label-text">保有資格</span>
+                  </label>
+                  <div class="space-y-2">
+                    <label class="label cursor-pointer justify-start gap-2">
+                      <input type="checkbox" class="checkbox" checked />
+                      <span class="label-text">介護福祉士</span>
+                    </label>
+                    <label class="label cursor-pointer justify-start gap-2">
+                      <input type="checkbox" class="checkbox" checked />
+                      <span class="label-text">介護支援専門員（ケアマネージャー）</span>
+                    </label>
+                    <label class="label cursor-pointer justify-start gap-2">
+                      <input type="checkbox" class="checkbox" checked />
+                      <span class="label-text">普通自動車免許</span>
+                    </label>
+                    <label class="label cursor-pointer justify-start gap-2">
+                      <input type="checkbox" class="checkbox" />
+                      <span class="label-text">社会福祉士</span>
+                    </label>
+                    <label class="label cursor-pointer justify-start gap-2">
+                      <input type="checkbox" class="checkbox" />
+                      <span class="label-text">看護師</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 住所情報 -->
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title mb-4">住所情報</h2>
+
+              <div class="grid grid-cols-1 gap-4">
+                <!-- 郵便番号 -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">郵便番号 <span class="text-error">*</span></span>
+                  </label>
+                  <div class="flex gap-2">
+                    <input type="text" value="950-0000" placeholder="000-0000" class="input input-bordered flex-1" required />
+                    <button type="button" class="btn btn-secondary">住所検索</button>
+                  </div>
+                </div>
+
+                <!-- 都道府県 -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">都道府県 <span class="text-error">*</span></span>
+                  </label>
+                  <select class="select select-bordered" required>
+                    <option value="">選択してください</option>
+                    <option value="15" selected>新潟県</option>
+                  </select>
+                </div>
+
+                <!-- 市区町村 -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">市区町村 <span class="text-error">*</span></span>
+                  </label>
+                  <input type="text" value="新潟市中央区" placeholder="新潟市中央区" class="input input-bordered" required />
+                </div>
+
+                <!-- 町名・番地 -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">町名・番地 <span class="text-error">*</span></span>
+                  </label>
+                  <input type="text" value="○○町1-2-3" placeholder="○○町1-2-3" class="input input-bordered" required />
+                </div>
+
+                <!-- 建物名・部屋番号 -->
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">建物名・部屋番号</span>
+                  </label>
+                  <input type="text" placeholder="○○マンション101号室" class="input input-bordered" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右カラム: サブ情報 -->
+        <div>
+          <!-- 保存ボタン -->
+          <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+              <h3 class="font-bold mb-4">操作</h3>
+              <div class="space-y-2">
+                <button type="submit" class="btn btn-primary w-full">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  保存
+                </button>
+                <a href="user-detail.html" class="btn btn-ghost w-full">キャンセル</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- 必須項目の注意 -->
+          <div class="alert alert-info mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div>
+              <h3 class="font-bold">必須項目</h3>
+              <div class="text-xs"><span class="text-error">*</span> がついている項目は必須です</div>
+            </div>
+          </div>
+
+          <!-- パスワード変更 -->
+          <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+              <h3 class="font-bold mb-4">パスワード変更</h3>
+
+              <div class="form-control mb-3">
+                <label class="label">
+                  <span class="label-text">新しいパスワード</span>
+                </label>
+                <input type="password" placeholder="8文字以上" class="input input-bordered" />
+                <label class="label">
+                  <span class="label-text-alt">8文字以上、英数字記号を含む</span>
+                </label>
+              </div>
+
+              <div class="form-control mb-3">
+                <label class="label">
+                  <span class="label-text">パスワード確認</span>
+                </label>
+                <input type="password" placeholder="再入力" class="input input-bordered" />
+              </div>
+
+              <label class="label cursor-pointer justify-start gap-2">
+                <input type="checkbox" class="checkbox checkbox-sm" />
+                <span class="label-text text-sm">パスワードリセットメールを送信</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 更新情報 -->
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h3 class="font-bold mb-4">更新情報</h3>
+
+              <div class="space-y-3 text-sm">
+                <div>
+                  <p class="text-gray-500">登録日時</p>
+                  <p>2025-01-10 09:30:00</p>
+                </div>
+
+                <div>
+                  <p class="text-gray-500">最終更新日時</p>
+                  <p>2025-01-15 14:20:00</p>
+                </div>
+
+                <div>
+                  <p class="text-gray-500">作成者</p>
+                  <p>管理者</p>
+                </div>
+
+                <div>
+                  <p class="text-gray-500">最終更新者</p>
+                  <p>管理者</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- フッター -->
+  <footer class="footer footer-center p-4 bg-base-300 text-base-content mt-8">
+    <aside>
+      <p>Copyright © 2025 新潟市 - All rights reserved</p>
+    </aside>
+  </footer>
+</body>
+</html>

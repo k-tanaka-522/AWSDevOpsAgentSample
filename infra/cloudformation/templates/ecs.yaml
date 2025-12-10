@@ -1,0 +1,265 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  X-Ray Watch POC - ECS Template
+  ECR, ECS Cluster, Task Definition, Service
+  Version: 1.0.0
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Environment name
+
+  PublicSubnet1a:
+    Type: String
+    Description: Public Subnet ID
+
+  EcsSecurityGroup:
+    Type: String
+    Description: ECS Security Group ID
+
+  AlbTargetGroupArn:
+    Type: String
+    Description: ALB Target Group ARN
+
+  EcsTaskExecutionRoleArn:
+    Type: String
+    Description: ECS Task Execution Role ARN
+
+  EcsTaskRoleArn:
+    Type: String
+    Description: ECS Task Role ARN
+
+  RdsEndpoint:
+    Type: String
+    Description: RDS Endpoint
+
+  RdsPort:
+    Type: String
+    Description: RDS Port
+
+  DbSecretArn:
+    Type: String
+    Description: Secrets Manager ARN for DB Password
+
+  ECSTaskCpu:
+    Type: Number
+    Default: 256
+    Description: ECS Task CPU (256 = 0.25vCPU)
+
+  ECSTaskMemory:
+    Type: Number
+    Default: 512
+    Description: ECS Task Memory (512 = 0.5GB)
+
+  ECSDesiredCount:
+    Type: Number
+    Default: 1
+    Description: ECS Task count
+
+  ECSAssignPublicIp:
+    Type: String
+    Default: ENABLED
+    AllowedValues:
+      - ENABLED
+      - DISABLED
+    Description: Assign public IP to ECS tasks
+
+  ContainerImage:
+    Type: String
+    Default: public.ecr.aws/nginx/nginx:latest
+    Description: Initial container image (will be replaced by ECR)
+
+Resources:
+  # ==============================================================================
+  # ECR Repository
+  # ==============================================================================
+  EcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub ${Environment}-app
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-ecr-repo
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # ECS Cluster
+  # ==============================================================================
+  EcsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub ${Environment}-cluster
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-cluster
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # CloudWatch Logs Group
+  # ==============================================================================
+  EcsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /ecs/${Environment}
+      RetentionInDays: 7
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-ecs-logs
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # ECS Task Definition
+  # ==============================================================================
+  EcsTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${Environment}-task
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: !Ref ECSTaskCpu
+      Memory: !Ref ECSTaskMemory
+      TaskRoleArn: !Ref EcsTaskRoleArn
+      ExecutionRoleArn: !Ref EcsTaskExecutionRoleArn
+      ContainerDefinitions:
+        # Container 1: Application
+        - Name: app
+          Image: !Ref ContainerImage
+          Cpu: 200
+          Memory: 384
+          MemoryReservation: 384
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8080
+              Protocol: tcp
+          Environment:
+            - Name: AWS_XRAY_DAEMON_ADDRESS
+              Value: localhost:2000
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            - Name: DB_HOST
+              Value: !Ref RdsEndpoint
+            - Name: DB_PORT
+              Value: !Ref RdsPort
+            - Name: DB_NAME
+              Value: xray_poc_db
+            - Name: DB_USER
+              Value: app_user
+            - Name: LOG_LEVEL
+              Value: INFO
+          Secrets:
+            - Name: DB_PASSWORD
+              ValueFrom: !Ref DbSecretArn
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref EcsLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: app
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - curl -f http://localhost:8080/health || exit 1
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+
+        # Container 2: X-Ray Daemon
+        - Name: xray-daemon
+          Image: public.ecr.aws/xray/aws-xray-daemon:latest
+          Cpu: 56
+          Memory: 64
+          MemoryReservation: 64
+          Essential: false
+          PortMappings:
+            - ContainerPort: 2000
+              Protocol: udp
+          Environment:
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref EcsLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: xray-daemon
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-task
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ==============================================================================
+  # ECS Service
+  # ==============================================================================
+  EcsService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub ${Environment}-service
+      Cluster: !Ref EcsCluster
+      TaskDefinition: !Ref EcsTaskDefinition
+      LaunchType: FARGATE
+      DesiredCount: !Ref ECSDesiredCount
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+        MaximumPercent: 200
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !Ref PublicSubnet1a
+          SecurityGroups:
+            - !Ref EcsSecurityGroup
+          AssignPublicIp: !Ref ECSAssignPublicIp
+      LoadBalancers:
+        - TargetGroupArn: !Ref AlbTargetGroupArn
+          ContainerName: app
+          ContainerPort: 8080
+      HealthCheckGracePeriodSeconds: 60
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-service
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  EcsClusterName:
+    Description: ECS Cluster Name
+    Value: !Ref EcsCluster
+
+  EcsServiceName:
+    Description: ECS Service Name
+    Value: !GetAtt EcsService.Name
+
+  EcrRepositoryUri:
+    Description: ECR Repository URI
+    Value: !GetAtt EcrRepository.RepositoryUri
