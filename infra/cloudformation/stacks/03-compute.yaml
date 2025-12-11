@@ -159,49 +159,25 @@ Resources:
       ContainerDefinitions:
         # Container 1: Application
         - Name: app
-          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepository}:latest
+          Image: !Ref ContainerImage
           Cpu: 200
           Memory: 384
           MemoryReservation: 384
           Essential: true
           PortMappings:
-            - ContainerPort: 8080
+            - ContainerPort: 80
               Protocol: tcp
           Environment:
             - Name: AWS_XRAY_DAEMON_ADDRESS
               Value: localhost:2000
             - Name: AWS_REGION
               Value: !Ref AWS::Region
-            - Name: DB_HOST
-              Value:
-                Fn::ImportValue: !Sub ${DatabaseStackName}-RdsEndpoint
-            - Name: DB_PORT
-              Value:
-                Fn::ImportValue: !Sub ${DatabaseStackName}-RdsPort
-            - Name: DB_NAME
-              Value: xray_poc_db
-            - Name: DB_USER
-              Value: app_user
-            - Name: LOG_LEVEL
-              Value: INFO
-          Secrets:
-            - Name: DB_PASSWORD
-              ValueFrom:
-                Fn::ImportValue: !Sub ${DatabaseStackName}-DbSecretArn
           LogConfiguration:
             LogDriver: awslogs
             Options:
               awslogs-group: !Ref EcsLogGroup
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: app
-          HealthCheck:
-            Command:
-              - CMD-SHELL
-              - curl -f http://localhost:8080/health || exit 1
-            Interval: 30
-            Timeout: 5
-            Retries: 3
-            StartPeriod: 60
 
         # Container 2: X-Ray Daemon
         - Name: xray-daemon
@@ -240,6 +216,7 @@ Resources:
       IpAddressType: ipv4
       Subnets:
         - Fn::ImportValue: !Sub ${BaseStackName}-PublicSubnet1a
+        - Fn::ImportValue: !Sub ${BaseStackName}-PublicSubnet1c
       SecurityGroups:
         - Fn::ImportValue: !Sub ${SecurityStackName}-AlbSecurityGroup
       Tags:
@@ -257,11 +234,11 @@ Resources:
       Name: !Sub ${AWS::StackName}-tg
       TargetType: ip
       Protocol: HTTP
-      Port: 8080
+      Port: 80
       VpcId:
         Fn::ImportValue: !Sub ${BaseStackName}-VpcId
       HealthCheckEnabled: true
-      HealthCheckPath: /health
+      HealthCheckPath: /
       HealthCheckProtocol: HTTP
       HealthCheckIntervalSeconds: 30
       HealthCheckTimeoutSeconds: 5
@@ -314,7 +291,7 @@ Resources:
       LoadBalancers:
         - TargetGroupArn: !Ref AlbTargetGroup
           ContainerName: app
-          ContainerPort: 8080
+          ContainerPort: 80
       HealthCheckGracePeriodSeconds: 60
       Tags:
         - Key: Name

@@ -29,10 +29,16 @@ Parameters:
   PublicSubnetCidr:
     Type: String
     Default: 10.0.1.0/24
-    Description: Public Subnet CIDR
+    Description: Public Subnet CIDR (AZ-1a)
     AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
 
-  DbSubnetCidr1a:
+  PublicSubnetCidr1c:
+    Type: String
+    Default: 10.0.2.0/24
+    Description: Public Subnet CIDR (AZ-1c)
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+
+  DbSubnetCidr:
     Type: String
     Default: 10.0.21.0/24
     Description: Database Subnet CIDR (AZ-1a)
@@ -47,7 +53,7 @@ Parameters:
   AvailabilityZone:
     Type: AWS::EC2::AvailabilityZone::Name
     Default: ap-northeast-1a
-    Description: Availability Zone (Public/Compute)
+    Description: Availability Zone (POC uses single AZ for compute)
 
 Resources:
   # ==============================================================================
@@ -84,8 +90,9 @@ Resources:
       InternetGatewayId: !Ref InternetGateway
 
   # ==============================================================================
-  # Public Subnet
+  # Public Subnets
   # ==============================================================================
+  # Keep existing PublicSubnet (ap-northeast-1a)
   PublicSubnet:
     Type: AWS::EC2::Subnet
     Properties:
@@ -101,15 +108,32 @@ Resources:
         - Key: Type
           Value: Public
 
-  # ==============================================================================
-  # Database Subnets (Multi-AZ for RDS requirement)
-  # ==============================================================================
-  DbSubnet1a:
+  # Add new PublicSubnet1c (ap-northeast-1c) for Multi-AZ ALB requirement
+  PublicSubnet1c:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      CidrBlock: !Ref DbSubnetCidr1a
-      AvailabilityZone: ap-northeast-1a
+      CidrBlock: !Ref PublicSubnetCidr1c
+      AvailabilityZone: ap-northeast-1c
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-public-1c
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Type
+          Value: Public
+
+  # ==============================================================================
+  # Database Subnets
+  # ==============================================================================
+  # Keep existing DbSubnet (ap-northeast-1a)
+  DbSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref DbSubnetCidr
+      AvailabilityZone: !Ref AvailabilityZone
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
@@ -119,6 +143,7 @@ Resources:
         - Key: Type
           Value: Database
 
+  # Add new DbSubnet1c (ap-northeast-1c) for Multi-AZ RDS requirement
   DbSubnet1c:
     Type: AWS::EC2::Subnet
     Properties:
@@ -161,6 +186,12 @@ Resources:
       SubnetId: !Ref PublicSubnet
       RouteTableId: !Ref PublicRouteTable
 
+  PublicSubnetRouteTableAssociation1c:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1c
+      RouteTableId: !Ref PublicRouteTable
+
   # ==============================================================================
   # Database Route Table
   # ==============================================================================
@@ -174,10 +205,10 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
-  DbSubnetRouteTableAssociation1a:
+  DbSubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref DbSubnet1a
+      SubnetId: !Ref DbSubnet
       RouteTableId: !Ref DbRouteTable
 
   DbSubnetRouteTableAssociation1c:
@@ -199,9 +230,15 @@ Outputs:
     Export:
       Name: !Sub ${AWS::StackName}-PublicSubnet1a
 
+  PublicSubnet1c:
+    Description: Public Subnet ID (ap-northeast-1c)
+    Value: !Ref PublicSubnet1c
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicSubnet1c
+
   DbSubnet1a:
     Description: Database Subnet ID (ap-northeast-1a)
-    Value: !Ref DbSubnet1a
+    Value: !Ref DbSubnet
     Export:
       Name: !Sub ${AWS::StackName}-DbSubnet1a
 

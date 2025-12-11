@@ -72,8 +72,8 @@ Resources:
     Properties:
       GroupId: !Ref AlbSecurityGroup
       IpProtocol: tcp
-      FromPort: 8080
-      ToPort: 8080
+      FromPort: 80
+      ToPort: 80
       DestinationSecurityGroupId: !Ref EcsSecurityGroup
       Description: HTTP to ECS
 
@@ -98,8 +98,8 @@ Resources:
     Properties:
       GroupId: !Ref EcsSecurityGroup
       IpProtocol: tcp
-      FromPort: 8080
-      ToPort: 8080
+      FromPort: 80
+      ToPort: 80
       SourceSecurityGroupId: !Ref AlbSecurityGroup
       Description: HTTP from ALB
 
@@ -189,7 +189,7 @@ Resources:
             Effect: Allow
             Action:
               - secretsmanager:GetSecretValue
-            Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:xray-poc/*
+            Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:xray-poc-*
 
   # ------------------------------------------------------------------------------
   # ECS Task Role

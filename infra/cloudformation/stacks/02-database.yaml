@@ -55,7 +55,7 @@ Parameters:
 
   DBEngineVersion:
     Type: String
-    Default: '15.4'
+    Default: '15.15'
     Description: PostgreSQL version
 
   DBName:
