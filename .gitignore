@@ -1,0 +1,17 @@
+# Build and Debug
+bin/
+obj/
+.vs/
+.vscode/
+
+# User specific
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+*.txt
+!CMakeLists.txt
+!LICENSE.txt

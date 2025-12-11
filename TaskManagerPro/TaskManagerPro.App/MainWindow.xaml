@@ -1,0 +1,117 @@
+﻿<Window x:Class="TaskManagerPro.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:TaskManagerPro.App.ViewModels"
+        mc:Ignorable="d"
+        Title="Task Manager Pro" Height="600" Width="1000"
+        d:DataContext="{d:DesignInstance Type=vm:MainWindowViewModel, IsDesignTimeCreatable=False}">
+    
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200" /> <!-- Sidebar -->
+            <ColumnDefinition Width="300" /> <!-- Task List -->
+            <ColumnDefinition Width="*" />   <!-- Detail (Placeholder) -->
+        </Grid.ColumnDefinitions>
+
+        <!-- Sidebar (Menu) -->
+        <Border Grid.Column="0" Background="#f0f0f0" Padding="10">
+            <StackPanel>
+                <TextBlock Text="MENU" FontWeight="Bold" Margin="0,0,0,10"/>
+                <Button Content="Add Task" Command="{Binding AddTaskCommand}" Margin="0,0,0,5" Padding="5"/>
+                <Separator Margin="0,10"/>
+                <TextBlock Text="Categories" FontWeight="Bold" Margin="0,0,0,5"/>
+                <ListBox>
+                    <ListBoxItem Content="All Tasks"/>
+                    <ListBoxItem Content="Inbox"/>
+                    <ListBoxItem Content="Work"/>
+                </ListBox>
+            </StackPanel>
+        </Border>
+
+        <!-- Task List -->
+        <Border Grid.Column="1" BorderBrush="#e0e0e0" BorderThickness="0,0,1,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <TextBlock Text="TASKS" FontWeight="Bold" Margin="10" Grid.Row="0"/>
+
+                <ListView Grid.Row="1" ItemsSource="{Binding Tasks}" SelectedItem="{Binding SelectedTask}" BorderThickness="0">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="5">
+                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="14"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="P:" Foreground="Gray"/>
+                                    <TextBlock Text="{Binding PriorityScore, StringFormat=N1}" FontWeight="Bold" Foreground="Red" Margin="5,0,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+        </Border>
+
+        <!-- Detail / Status (Right Pane) -->
+        <Grid Grid.Column="2" Background="White">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Content -->
+            <StackPanel Margin="20" DataContext="{Binding SelectedTask}">
+                <TextBlock Text="{Binding Title}" FontSize="24" FontWeight="Bold" Margin="0,0,0,10"/>
+                <TextBlock Text="{Binding Description}" TextWrapping="Wrap" Margin="0,0,0,20"/>
+                
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                     <TextBlock Text="Priority Score: " FontWeight="Bold"/>
+                     <TextBlock Text="{Binding PriorityScore}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                     <TextBlock Text="Effort (h): " FontWeight="Bold"/>
+                     <TextBlock Text="{Binding EffortHours}"/>
+                </StackPanel>
+                
+                <!-- If no selection -->
+                <TextBlock Text="Select a task to view details.">
+                     <TextBlock.Style>
+                         <Style TargetType="TextBlock">
+                             <Setter Property="Visibility" Value="Collapsed"/>
+                             <Style.Triggers>
+                                 <DataTrigger Binding="{Binding SelectedTask}" Value="{x:Null}">
+                                     <Setter Property="Visibility" Value="Visible"/>
+                                 </DataTrigger>
+                             </Style.Triggers>
+                         </Style>
+                     </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+
+            <!-- StatusBar -->
+            <StatusBar Grid.Row="1">
+                <StatusBarItem>
+                    <TextBlock Text="{Binding StatusMessage}"/>
+                </StatusBarItem>
+                <StatusBarItem HorizontalAlignment="Right">
+                     <ProgressBar Width="100" Height="10" IsIndeterminate="True">
+                         <ProgressBar.Style>
+                             <Style TargetType="ProgressBar">
+                                 <Setter Property="Visibility" Value="Collapsed"/>
+                                 <Style.Triggers>
+                                     <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                         <Setter Property="Visibility" Value="Visible"/>
+                                     </DataTrigger>
+                                 </Style.Triggers>
+                             </Style>
+                         </ProgressBar.Style>
+                     </ProgressBar>
+                </StatusBarItem>
+            </StatusBar>
+        </Grid>
+    </Grid>
+</Window>
