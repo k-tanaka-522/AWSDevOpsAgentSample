@@ -165,13 +165,15 @@ Resources:
           MemoryReservation: 384
           Essential: true
           PortMappings:
-            - ContainerPort: 80
+            - ContainerPort: 8000
               Protocol: tcp
           Environment:
             - Name: AWS_XRAY_DAEMON_ADDRESS
               Value: localhost:2000
             - Name: AWS_REGION
               Value: !Ref AWS::Region
+            - Name: DATABASE_URL
+              Value: postgresql://postgres:r6wDM7nYOPyWBCkax0rRa4sQ4U4HXelJ@xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com:5432/postgres
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -231,14 +233,13 @@ Resources:
   AlbTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub ${AWS::StackName}-tg
       TargetType: ip
       Protocol: HTTP
-      Port: 80
+      Port: 8000
       VpcId:
         Fn::ImportValue: !Sub ${BaseStackName}-VpcId
       HealthCheckEnabled: true
-      HealthCheckPath: /
+      HealthCheckPath: /health
       HealthCheckProtocol: HTTP
       HealthCheckIntervalSeconds: 30
       HealthCheckTimeoutSeconds: 5
@@ -291,7 +292,7 @@ Resources:
       LoadBalancers:
         - TargetGroupArn: !Ref AlbTargetGroup
           ContainerName: app
-          ContainerPort: 80
+          ContainerPort: 8000
       HealthCheckGracePeriodSeconds: 60
       Tags:
         - Key: Name

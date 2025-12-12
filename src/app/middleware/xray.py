@@ -22,7 +22,6 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from aws_xray_sdk.core import xray_recorder
-from aws_xray_sdk.ext.flask.middleware import XRayMiddleware as BaseXRayMiddleware
 
 
 class XRayMiddleware(BaseHTTPMiddleware):
@@ -47,7 +46,7 @@ class XRayMiddleware(BaseHTTPMiddleware):
         # X-Ray Recorderの設定
         xray_recorder.configure(
             service="xray-watch-poc",
-            daemon_address=os.environ.get("XRAY_DAEMON_ADDRESS", "127.0.0.1:2000"),
+            daemon_address=os.environ.get("AWS_XRAY_DAEMON_ADDRESS", "127.0.0.1:2000"),
             sampling=True,  # サンプリングを有効化
             context_missing="LOG_ERROR",  # コンテキストがない場合はログ出力
         )

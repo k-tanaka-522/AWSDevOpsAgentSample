@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: X-Ray Watch POC - Alarm Formatter Stack (05-alarm-formatter)
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues: [production, development]
+
+  SnsTopicArn:
+    Type: String
+    Default: arn:aws:sns:ap-northeast-1:897167645238:xray-poc-alerts
+
+  NotificationEmail:
+    Type: String
+    Default: yotkn003@gmail.com
+
+Resources:
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: xray-poc-alarm-formatter-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SESEmailPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [ses:SendEmail, ses:SendRawEmail]
+                Resource: '*'
+
+  AlarmFormatterFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: xray-poc-alarm-formatter
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      Code:
+        ZipFile: |
+          import json, boto3
+          from datetime import datetime
+          ses = boto3.client('ses', region_name='ap-northeast-1')
+          def lambda_handler(event, context):
+              msg = json.loads(event['Records'][0]['Sns']['Message'])
+              alarm_name = msg.get('AlarmName', 'Unknown')
+              new_state = msg.get('NewStateValue', 'UNKNOWN')
+              old_state = msg.get('OldStateValue', 'UNKNOWN')
+              reason = msg.get('NewStateReason', 'No reason')
+              timestamp = msg.get('StateChangeTime', datetime.utcnow().isoformat())
+              description = msg.get('AlarmDescription', 'No description')
+              region = msg.get('Region', 'ap-northeast-1')
+              alarm_url = f"https://console.aws.amazon.com/cloudwatch/home?region={region}#alarmsV2:alarm/{alarm_name}"
+
+              colors = {'ALARM': ('#dc3545', '#f8d7da', 'WARNING'), 'OK': ('#198754', '#d1e7dd', 'CHECK'), 'INSUFFICIENT_DATA': ('#ffc107', '#fff3cd', 'QUESTION')}
+              color, bg, icon = colors.get(new_state, colors['INSUFFICIENT_DATA'])
+
+              html = f'''<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{{font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px}}.container{{max-width:600px;margin:0 auto;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden}}.header{{background:{color};color:#fff;padding:30px 20px;text-align:center}}.header h1{{margin:0;font-size:24px}}.content{{padding:30px 20px}}.badge{{background:{bg};color:{color};padding:8px 16px;border-radius:20px;font-weight:600;display:inline-block;margin:10px 0}}.info{{margin:20px 0;padding:15px;background:#f8f9fa;border-left:4px solid {color};border-radius:4px}}.label{{font-weight:600;color:#666;font-size:12px;text-transform:uppercase;margin-bottom:5px}}.value{{color:#333;margin-bottom:15px}}.button{{display:inline-block;background:{color};color:#fff;text-decoration:none;padding:12px 30px;border-radius:6px;margin:20px 0;font-weight:600}}.footer{{background:#f8f9fa;padding:20px;text-align:center;color:#666;font-size:12px;border-top:1px solid #dee2e6}}</style></head><body><div class="container"><div class="header"><h1>CloudWatch Alarm</h1><div class="badge">{new_state}</div></div><div class="content"><h2>{alarm_name}</h2><div class="info"><div class="label">Description</div><div class="value">{description}</div></div><div class="info"><div class="label">State Change</div><div class="value">{old_state} -> {new_state}</div></div><div class="info"><div class="label">Reason</div><div class="value">{reason}</div></div><div class="info"><div class="label">Timestamp</div><div class="value">{timestamp}</div></div><div style="text-align:center"><a href="{alarm_url}" class="button">View in AWS Console</a></div></div><div class="footer"><p>X-Ray Watch POC - Monitoring System</p></div></div></body></html>'''
+
+              resp = ses.send_email(
+                  Source='yotkn003@gmail.com',
+                  Destination={'ToAddresses': ['yotkn003@gmail.com']},
+                  Message={'Subject': {'Data': f"[{new_state}] CloudWatch: {alarm_name}", 'Charset': 'UTF-8'},
+                          'Body': {'Html': {'Data': html, 'Charset': 'UTF-8'}}}
+              )
+              print(f"Email sent: {resp['MessageId']}")
+              return {'statusCode': 200, 'body': json.dumps({'messageId': resp['MessageId']})}
+
+  LambdaSnsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: lambda
+      TopicArn: !Ref SnsTopicArn
+      Endpoint: !GetAtt AlarmFormatterFunction.Arn
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AlarmFormatterFunction
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref SnsTopicArn
+
+  TestAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: xray-poc-test-alarm
+      AlarmDescription: Test alarm for HTML email notification
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Period: 60
+      Statistic: Average
+      Threshold: 100.0
+      ActionsEnabled: true
+      AlarmActions: [!Ref SnsTopicArn]
+      OKActions: [!Ref SnsTopicArn]
+      InsufficientDataActions: [!Ref SnsTopicArn]
+      TreatMissingData: breaching
+
+Outputs:
+  LambdaFunctionArn:
+    Value: !GetAtt AlarmFormatterFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-lambda-arn
+  TestAlarmName:
+    Value: !Ref TestAlarm
+    Export:
+      Name: !Sub ${AWS::StackName}-test-alarm

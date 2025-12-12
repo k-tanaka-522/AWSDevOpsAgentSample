@@ -153,7 +153,8 @@ async def list_tasks(
     pool = await get_db_pool()
 
     # X-Rayサブセグメント（PostgreSQL SELECT）
-    with xray_recorder.capture("PostgreSQL SELECT tasks"):
+    with xray_recorder.capture("PostgreSQL") as subsegment:
+        subsegment.namespace = "remote"
         async with pool.acquire() as conn:
             # WHERE句の構築
             where_clause = ""
@@ -175,8 +176,12 @@ async def list_tasks(
             rows = await conn.fetch(query, *params)
             total = await conn.fetchval(count_query, *count_params)
 
-            # X-Rayメタデータ（実行SQLクエリ）
-            xray_recorder.current_subsegment().put_metadata("sql_query", query)
+            # X-RayでRDS情報を設定
+            subsegment.sql = {
+                "database_type": "PostgreSQL",
+                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
+                "sanitized_query": query
+            }
 
     # レスポンス構築
     tasks = [
@@ -214,14 +219,18 @@ async def get_task(task_id: str) -> TaskResponse:
     pool = await get_db_pool()
 
     # X-Rayサブセグメント（PostgreSQL SELECT）
-    with xray_recorder.capture("PostgreSQL SELECT tasks WHERE id = ?"):
+    with xray_recorder.capture("PostgreSQL") as subsegment:
+        subsegment.namespace = "remote"
         async with pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT * FROM tasks WHERE id = $1", uuid.UUID(task_id))
+            query = "SELECT * FROM tasks WHERE id = $1"
+            row = await conn.fetchrow(query, uuid.UUID(task_id))
 
-            # X-Rayメタデータ（実行SQLクエリ）
-            xray_recorder.current_subsegment().put_metadata(
-                "sql_query", f"SELECT * FROM tasks WHERE id = {task_id}"
-            )
+            # X-RayでRDS情報を設定
+            subsegment.sql = {
+                "database_type": "PostgreSQL",
+                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
+                "sanitized_query": query
+            }
 
     if not row:
         raise HTTPException(
@@ -259,23 +268,27 @@ async def create_task(task: TaskCreate) -> TaskResponse:
     pool = await get_db_pool()
 
     # X-Rayサブセグメント（PostgreSQL INSERT）
-    with xray_recorder.capture("PostgreSQL INSERT INTO tasks"):
+    with xray_recorder.capture("PostgreSQL") as subsegment:
+        subsegment.namespace = "remote"
         async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                """
+            query = """
                 INSERT INTO tasks (title, description, status)
                 VALUES ($1, $2, $3)
                 RETURNING *
-                """,
+                """
+            row = await conn.fetchrow(
+                query,
                 task.title,
                 task.description,
                 task.status,
             )
 
-            # X-Rayメタデータ（実行SQLクエリ）
-            xray_recorder.current_subsegment().put_metadata(
-                "sql_query", f"INSERT INTO tasks (title={task.title}, status={task.status})"
-            )
+            # X-RayでRDS情報を設定
+            subsegment.sql = {
+                "database_type": "PostgreSQL",
+                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
+                "sanitized_query": query
+            }
 
     return TaskResponse(
         id=str(row["id"]),
@@ -337,12 +350,17 @@ async def update_task(task_id: str, task: TaskUpdate) -> TaskResponse:
     query = f"UPDATE tasks SET {', '.join(updates)} WHERE id = ${param_idx} RETURNING *"
 
     # X-Rayサブセグメント（PostgreSQL UPDATE）
-    with xray_recorder.capture("PostgreSQL UPDATE tasks WHERE id = ?"):
+    with xray_recorder.capture("PostgreSQL") as subsegment:
+        subsegment.namespace = "remote"
         async with pool.acquire() as conn:
             row = await conn.fetchrow(query, *params)
 
-            # X-Rayメタデータ（実行SQLクエリ）
-            xray_recorder.current_subsegment().put_metadata("sql_query", query)
+            # X-RayでRDS情報を設定
+            subsegment.sql = {
+                "database_type": "PostgreSQL",
+                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
+                "sanitized_query": query
+            }
 
     if not row:
         raise HTTPException(
@@ -380,14 +398,18 @@ async def delete_task(task_id: str) -> None:
     pool = await get_db_pool()
 
     # X-Rayサブセグメント（PostgreSQL DELETE）
-    with xray_recorder.capture("PostgreSQL DELETE FROM tasks WHERE id = ?"):
+    with xray_recorder.capture("PostgreSQL") as subsegment:
+        subsegment.namespace = "remote"
         async with pool.acquire() as conn:
-            result = await conn.execute("DELETE FROM tasks WHERE id = $1", uuid.UUID(task_id))
+            query = "DELETE FROM tasks WHERE id = $1"
+            result = await conn.execute(query, uuid.UUID(task_id))
 
-            # X-Rayメタデータ（実行SQLクエリ）
-            xray_recorder.current_subsegment().put_metadata(
-                "sql_query", f"DELETE FROM tasks WHERE id = {task_id}"
-            )
+            # X-RayでRDS情報を設定
+            subsegment.sql = {
+                "database_type": "PostgreSQL",
+                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
+                "sanitized_query": query
+            }
 
     if result == "DELETE 0":
         raise HTTPException(
@@ -421,15 +443,28 @@ async def slow_db_simulation() -> dict:
     pool = await get_db_pool()
 
     # X-Rayサブセグメント（PostgreSQL pg_sleep(3)）
-    with xray_recorder.capture("PostgreSQL pg_sleep(3)"):
+    with xray_recorder.capture("PostgreSQL") as subsegment:
+        subsegment.namespace = "remote"
         async with pool.acquire() as conn:
-            await conn.fetchval("SELECT pg_sleep(3)")
-            xray_recorder.current_subsegment().put_metadata("delay_seconds", 3)
+            query = "SELECT pg_sleep(3)"
+            await conn.fetchval(query)
+            subsegment.sql = {
+                "database_type": "PostgreSQL",
+                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
+                "sanitized_query": query
+            }
 
     # 通常のタスク一覧取得
-    with xray_recorder.capture("PostgreSQL SELECT tasks"):
+    with xray_recorder.capture("PostgreSQL") as subsegment:
+        subsegment.namespace = "remote"
         async with pool.acquire() as conn:
-            rows = await conn.fetch("SELECT * FROM tasks ORDER BY created_at DESC LIMIT 20")
+            query = "SELECT * FROM tasks ORDER BY created_at DESC LIMIT 20"
+            rows = await conn.fetch(query)
+            subsegment.sql = {
+                "database_type": "PostgreSQL",
+                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
+                "sanitized_query": query
+            }
 
     tasks = [
         {
@@ -471,9 +506,16 @@ async def slow_logic_simulation() -> dict:
 
     # 通常のタスク一覧取得
     pool = await get_db_pool()
-    with xray_recorder.capture("PostgreSQL SELECT tasks"):
+    with xray_recorder.capture("PostgreSQL") as subsegment:
+        subsegment.namespace = "remote"
         async with pool.acquire() as conn:
-            rows = await conn.fetch("SELECT * FROM tasks ORDER BY created_at DESC LIMIT 20")
+            query = "SELECT * FROM tasks ORDER BY created_at DESC LIMIT 20"
+            rows = await conn.fetch(query)
+            subsegment.sql = {
+                "database_type": "PostgreSQL",
+                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
+                "sanitized_query": query
+            }
 
     tasks = [
         {
@@ -517,9 +559,16 @@ async def slow_external_simulation() -> dict:
 
     # 通常のタスク一覧取得
     pool = await get_db_pool()
-    with xray_recorder.capture("PostgreSQL SELECT tasks"):
+    with xray_recorder.capture("PostgreSQL") as subsegment:
+        subsegment.namespace = "remote"
         async with pool.acquire() as conn:
-            rows = await conn.fetch("SELECT * FROM tasks ORDER BY created_at DESC LIMIT 20")
+            query = "SELECT * FROM tasks ORDER BY created_at DESC LIMIT 20"
+            rows = await conn.fetch(query)
+            subsegment.sql = {
+                "database_type": "PostgreSQL",
+                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
+                "sanitized_query": query
+            }
 
     tasks = [
         {

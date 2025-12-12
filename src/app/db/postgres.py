@@ -33,6 +33,7 @@ async def init_db() -> None:
     - アプリケーション起動時にDB接続プールを作成
     - 複数のDB接続を再利用し、パフォーマンスを向上
     - 環境変数DATABASE_URLから接続情報を取得
+    - tasksテーブルとインデックスを自動作成
 
     影響範囲:
     - すべてのDBアクセス処理
@@ -55,6 +56,41 @@ async def init_db() -> None:
     )
 
     print(f"✅ Database connection pool created: {database_url}")
+
+    # テーブルとインデックスの自動作成
+    try:
+        async with _pool.acquire() as conn:
+            # tasksテーブル作成
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS tasks (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    title VARCHAR(100) NOT NULL,
+                    description VARCHAR(500),
+                    status VARCHAR(20) NOT NULL DEFAULT 'pending'
+                        CHECK (status IN ('pending', 'in_progress', 'completed')),
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+                );
+            """)
+
+            # インデックス作成
+            await conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);")
+            await conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at DESC);")
+
+            # サンプルデータ挿入
+            await conn.execute("""
+                INSERT INTO tasks (title, description, status) VALUES
+                    ('X-Ray検証タスク1', 'AWS X-Rayの分散トレーシング検証', 'in_progress'),
+                    ('X-Ray検証タスク2', 'DB遅延シミュレーション検証', 'pending'),
+                    ('X-Ray検証タスク3', 'ロジック遅延シミュレーション検証', 'pending'),
+                    ('X-Ray検証タスク4', '外部API遅延シミュレーション検証', 'completed')
+                ON CONFLICT DO NOTHING;
+            """)
+
+            print("✅ Database migration completed")
+    except Exception as e:
+        print(f"⚠️ Database migration failed: {e}")
+        # アプリケーションは起動を継続
 
 
 async def close_db() -> None:
