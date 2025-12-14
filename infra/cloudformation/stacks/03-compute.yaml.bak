@@ -173,9 +173,7 @@ Resources:
             - Name: AWS_REGION
               Value: !Ref AWS::Region
             - Name: DATABASE_URL
-              Value: postgresql://postgres:I95bBZazdIH5U9o2txZtAkWynvLOhMna@xray-poc-02-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com:5432/postgres
-            - Name: ENABLE_FAULT_SIMULATION
-              Value: 'true'
+              Value: postgresql://postgres:r6wDM7nYOPyWBCkax0rRa4sQ4U4HXelJ@xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com:5432/postgres
           LogConfiguration:
             LogDriver: awslogs
             Options:

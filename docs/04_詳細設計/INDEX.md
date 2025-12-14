@@ -6,7 +6,7 @@
 |------|------|
 | プロジェクト名 | X-Ray Watch POC |
 | 目的 | CloudFormationスタック単位での詳細設計（リソース定義） |
-| スコープ | 5つのCloudFormationスタックの詳細設計 |
+| スコープ | 5つのCloudFormationスタックの詳細設計 + アプリケーション詳細設計 |
 | 予算 | 月額1,000円程度（$7-10）<br/>※検証時のみ起動（月20時間程度） |
 
 ## ドキュメント構成
@@ -21,11 +21,12 @@
 | 03 | Compute | [04_compute_stack.md](04_compute_stack.md) | ECR、ECS Cluster/Service、ALB、Target Group | 300行 | 🔄 作成中 |
 | 04 | Monitoring | [05_monitoring_stack.md](05_monitoring_stack.md) | CloudWatch Alarms、SNS Topic、X-Ray設定 | 180行 | 🔄 作成中 |
 
-### API仕様書
+### アプリケーション詳細設計
 
 | # | ドキュメント | 概要 | レビュー状況 |
 |---|------------|------|-------------|
 | - | [06_api_specification.md](06_api_specification.md) | タスク管理API + 障害シミュレーションAPI | 🔄 作成中 |
+| - | [07_fault_simulation_design.md](07_fault_simulation_design.md) | 障害シミュレーション機能詳細設計（ルーティング修正、環境制御、X-Ray統合） | ✅ 完了 |
 
 **合計推定行数**: 約950行（CloudFormationテンプレート）
 
@@ -234,10 +235,24 @@ aws cloudformation create-stack \
 4. **テスト方法**
    - 各スタック詳細設計書の「テスト方法」セクション参照
 
+### Coderへの引き継ぎ事項
+
+1. **アプリケーション実装**
+   - [07_fault_simulation_design.md](07_fault_simulation_design.md) を参照
+   - ルーティング順序修正が必須
+   - 環境変数 `ENABLE_FAULT_SIMULATION` による制御実装
+
+2. **修正対象ファイル**
+   - `src/app/api/tasks.py`
+
+3. **テスト方法**
+   - ローカル: `docker-compose up -d` → `curl http://localhost:8000/tasks/slow-db`
+   - AWS ECS: ALB経由でアクセス
+
 ## レビュー・承認
 
-- 設計者: infra-architect
-- レビュー担当者: SRE、PM
+- 設計者: infra-architect, app-architect
+- レビュー担当者: SRE、Coder、PM
 - 承認者: ユーザー
 - 承認日: 未定
 
@@ -249,6 +264,7 @@ aws cloudformation create-stack \
 
 ---
 
-**作成者**: infra-architect (via PM)
+**作成者**: infra-architect, app-architect (via PM)
 **作成日**: 2025-12-10
-**バージョン**: 1.0
+**最終更新日**: 2025-12-14
+**バージョン**: 1.1

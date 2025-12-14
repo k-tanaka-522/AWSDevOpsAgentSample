@@ -1,0 +1,49 @@
+{
+    "family": "xray-poc-03-compute-task",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "256",
+    "memory": "512",
+    "executionRoleArn": "arn:aws:iam::897167645238:role/xray-poc-01-security-ecs-task-execution-role",
+    "taskRoleArn": "arn:aws:iam::897167645238:role/xray-poc-01-security-ecs-task-role",
+    "containerDefinitions": [
+        {
+            "name": "xray-daemon",
+            "image": "public.ecr.aws/xray/aws-xray-daemon:latest",
+            "cpu": 56,
+            "memory": 64,
+            "essential": false,
+            "portMappings": [{"containerPort": 2000, "protocol": "udp"}],
+            "environment": [{"name": "AWS_REGION", "value": "ap-northeast-1"}],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/xray-poc-03-compute",
+                    "awslogs-region": "ap-northeast-1",
+                    "awslogs-stream-prefix": "xray-daemon"
+                }
+            }
+        },
+        {
+            "name": "app",
+            "image": "897167645238.dkr.ecr.ap-northeast-1.amazonaws.com/xray-poc-compute-app:latest",
+            "cpu": 200,
+            "memory": 384,
+            "essential": true,
+            "portMappings": [{"containerPort": 8000, "protocol": "tcp"}],
+            "environment": [
+                {"name": "AWS_XRAY_DAEMON_ADDRESS", "value": "localhost:2000"},
+                {"name": "AWS_REGION", "value": "ap-northeast-1"},
+                {"name": "DATABASE_URL", "value": "postgresql://postgres:I95bBZazdIH5U9o2txZtAkWynvLOhMna@xray-poc-02-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com:5432/postgres"}
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/xray-poc-03-compute",
+                    "awslogs-region": "ap-northeast-1",
+                    "awslogs-stream-prefix": "app"
+                }
+            }
+        }
+    ]
+}

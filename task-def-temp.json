@@ -1,0 +1,111 @@
+{
+    "family": "xray-poc-03-compute-task",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "256",
+    "memory": "512",
+    "executionRoleArn": "arn:aws:iam::897167645238:role/xray-poc-01-security-ecs-task-execution-role",
+    "taskRoleArn": "arn:aws:iam::897167645238:role/xray-poc-01-security-ecs-task-role",
+    "containerDefinitions": [
+        {
+            "name": "xray-daemon",
+            "image": "public.ecr.aws/xray/aws-xray-daemon:latest",
+            "cpu": 56,
+            "memory": 64,
+            "memoryReservation": 64,
+            "links": [],
+            "portMappings": [
+                {
+                    "containerPort": 2000,
+                    "hostPort": 2000,
+                    "protocol": "udp"
+                }
+            ],
+            "essential": false,
+            "entryPoint": [],
+            "command": [],
+            "environment": [
+                {
+                    "name": "AWS_REGION",
+                    "value": "ap-northeast-1"
+                }
+            ],
+            "environmentFiles": [],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "secrets": [],
+            "dnsServers": [],
+            "dnsSearchDomains": [],
+            "extraHosts": [],
+            "dockerSecurityOptions": [],
+            "dockerLabels": {},
+            "ulimits": [],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/xray-poc-03-compute",
+                    "awslogs-region": "ap-northeast-1",
+                    "awslogs-stream-prefix": "xray-daemon"
+                },
+                "secretOptions": []
+            },
+            "systemControls": [],
+            "credentialSpecs": []
+        },
+        {
+            "name": "app",
+            "image": "public.ecr.aws/nginx/nginx:latest",
+            "cpu": 200,
+            "memory": 384,
+            "memoryReservation": 384,
+            "links": [],
+            "portMappings": [
+                {
+                    "containerPort": 8000,
+                    "hostPort": 8000,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "entryPoint": [],
+            "command": [],
+            "environment": [
+                {
+                    "name": "AWS_XRAY_DAEMON_ADDRESS",
+                    "value": "localhost:2000"
+                },
+                {
+                    "name": "AWS_REGION",
+                    "value": "ap-northeast-1"
+                },
+                {
+                    "name": "DATABASE_URL",
+                    "value": "postgresql://postgres:r6wDM7nYOPyWBCkax0rRa4sQ4U4HXelJ@xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com:5432/postgres"
+                }
+            ],
+            "environmentFiles": [],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "secrets": [],
+            "dnsServers": [],
+            "dnsSearchDomains": [],
+            "extraHosts": [],
+            "dockerSecurityOptions": [],
+            "dockerLabels": {},
+            "ulimits": [],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/xray-poc-03-compute",
+                    "awslogs-region": "ap-northeast-1",
+                    "awslogs-stream-prefix": "app"
+                },
+                "secretOptions": []
+            },
+            "systemControls": [],
+            "credentialSpecs": []
+        }
+    ]
+}

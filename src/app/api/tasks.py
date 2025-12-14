@@ -15,6 +15,7 @@
 - X-Ray Daemonが稼働していること（ECS環境）
 """
 
+import os
 import time
 import uuid
 from typing import Optional
@@ -28,6 +29,16 @@ from db.postgres import get_db_pool
 
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
+
+
+# --------------------------------
+# 環境制御（障害シミュレーション有効/無効）
+# --------------------------------
+
+# 目的・理由: 本番環境で障害シミュレーションを無効化するため
+# 影響範囲: /tasks/slow-db, /tasks/slow-logic, /tasks/slow-external
+# 前提条件・制約: 環境変数ENABLE_FAULT_SIMULATIONがtrueの場合のみ有効
+ENABLE_FAULT_SIMULATION = os.getenv("ENABLE_FAULT_SIMULATION", "false").lower() == "true"
 
 
 # --------------------------------
@@ -120,6 +131,209 @@ class TaskListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+# --------------------------------
+# 障害シミュレーションAPI（X-Ray検証用）
+# --------------------------------
+# 重要: ルーティング順序
+# - FastAPIは定義順にルーティングを評価するため、具体的なパス（/slow-db）を
+#   パラメータ付きパス（/{task_id}）より先に定義する必要がある
+
+
+@router.get("/slow-db", response_model=dict)
+async def slow_db_simulation() -> dict:
+    """
+    DB遅延シミュレーション（X-Ray検証用）
+
+    目的・理由:
+    - X-Rayで「DB処理が遅い」ことを可視化
+    - pg_sleep(3)で3秒遅延させる
+    - X-Rayサービスマップで確認
+
+    影響範囲:
+    - PostgreSQL（SELECT pg_sleep(3)）
+    - X-Rayトレース
+
+    前提条件・制約:
+    - 本番環境では無効化すべき
+    - ENABLE_FAULT_SIMULATION=true の場合のみ有効
+    """
+    # 環境変数チェック
+    if not ENABLE_FAULT_SIMULATION:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": {"code": "FORBIDDEN", "message": "Fault simulation is disabled"}},
+        )
+
+    pool = await get_db_pool()
+
+    # X-Rayサブセグメント（PostgreSQL pg_sleep(3)）
+    with xray_recorder.capture("PostgreSQL Delay Simulation") as subsegment:
+        subsegment.namespace = "remote"
+        subsegment.put_annotation("simulation_type", "db-slow")
+        subsegment.put_metadata("delay_seconds", 3)
+
+        async with pool.acquire() as conn:
+            query = "SELECT pg_sleep(3)"
+            await conn.fetchval(query)
+            subsegment.sql = {
+                "database_type": "PostgreSQL",
+                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
+                "sanitized_query": query
+            }
+
+    # 通常のタスク一覧取得
+    with xray_recorder.capture("PostgreSQL SELECT tasks") as subsegment:
+        subsegment.namespace = "remote"
+        async with pool.acquire() as conn:
+            query = "SELECT * FROM tasks ORDER BY created_at DESC LIMIT 20"
+            rows = await conn.fetch(query)
+            subsegment.sql = {
+                "database_type": "PostgreSQL",
+                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
+                "sanitized_query": query
+            }
+
+    tasks = [
+        {
+            "id": str(row["id"]),
+            "title": row["title"],
+            "description": row["description"],
+            "status": row["status"],
+            "created_at": row["created_at"].isoformat() + "Z",
+            "updated_at": row["updated_at"].isoformat() + "Z",
+        }
+        for row in rows
+    ]
+
+    return {"tasks": tasks, "simulation": "db-slow", "delay_seconds": 3}
+
+
+@router.get("/slow-logic", response_model=dict)
+async def slow_logic_simulation() -> dict:
+    """
+    ロジック遅延シミュレーション（X-Ray検証用）
+
+    目的・理由:
+    - X-Rayで「アプリケーションロジックが遅い」ことを可視化
+    - time.sleep(5)で5秒遅延させる
+    - X-Rayサービスマップで確認
+
+    影響範囲:
+    - アプリケーション処理（time.sleep）
+    - X-Rayトレース
+
+    前提条件・制約:
+    - 本番環境では無効化すべき
+    - 非同期処理をブロックするため注意
+    - ENABLE_FAULT_SIMULATION=true の場合のみ有効
+    """
+    # 環境変数チェック
+    if not ENABLE_FAULT_SIMULATION:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": {"code": "FORBIDDEN", "message": "Fault simulation is disabled"}},
+        )
+
+    # X-Rayサブセグメント（Business Logic Delay）
+    with xray_recorder.capture("Business Logic Delay Simulation") as subsegment:
+        subsegment.put_annotation("simulation_type", "logic-slow")
+        subsegment.put_metadata("delay_seconds", 5)
+        time.sleep(5)  # 5秒遅延
+
+    # 通常のタスク一覧取得
+    pool = await get_db_pool()
+    with xray_recorder.capture("PostgreSQL SELECT tasks") as subsegment:
+        subsegment.namespace = "remote"
+        async with pool.acquire() as conn:
+            query = "SELECT * FROM tasks ORDER BY created_at DESC LIMIT 20"
+            rows = await conn.fetch(query)
+            subsegment.sql = {
+                "database_type": "PostgreSQL",
+                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
+                "sanitized_query": query
+            }
+
+    tasks = [
+        {
+            "id": str(row["id"]),
+            "title": row["title"],
+            "description": row["description"],
+            "status": row["status"],
+            "created_at": row["created_at"].isoformat() + "Z",
+            "updated_at": row["updated_at"].isoformat() + "Z",
+        }
+        for row in rows
+    ]
+
+    return {"tasks": tasks, "simulation": "logic-slow", "delay_seconds": 5}
+
+
+@router.get("/slow-external", response_model=dict)
+async def slow_external_simulation() -> dict:
+    """
+    外部API遅延シミュレーション（X-Ray検証用）
+
+    目的・理由:
+    - X-Rayで「外部API呼び出しが遅い」ことを可視化
+    - httpbin.org/delay/2で2秒遅延させる
+    - X-Rayサービスマップで確認
+
+    影響範囲:
+    - 外部API（httpbin.org）
+    - X-Rayトレース
+
+    前提条件・制約:
+    - 本番環境では無効化すべき
+    - httpbin.orgが利用可能であること
+    - ENABLE_FAULT_SIMULATION=true の場合のみ有効
+    """
+    # 環境変数チェック
+    if not ENABLE_FAULT_SIMULATION:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": {"code": "FORBIDDEN", "message": "Fault simulation is disabled"}},
+        )
+
+    # X-Rayサブセグメント（External API httpbin.org）
+    with xray_recorder.capture("External API httpbin.org Delay Simulation") as subsegment:
+        subsegment.namespace = "remote"
+        subsegment.put_annotation("simulation_type", "external-slow")
+        subsegment.put_metadata("delay_seconds", 2)
+        subsegment.put_metadata("external_url", "https://httpbin.org/delay/2")
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get("https://httpbin.org/delay/2", timeout=10.0)
+            subsegment.put_metadata("external_api_status", response.status_code)
+            subsegment.put_metadata("external_api_response_time_ms", response.elapsed.total_seconds() * 1000)
+
+    # 通常のタスク一覧取得
+    pool = await get_db_pool()
+    with xray_recorder.capture("PostgreSQL SELECT tasks") as subsegment:
+        subsegment.namespace = "remote"
+        async with pool.acquire() as conn:
+            query = "SELECT * FROM tasks ORDER BY created_at DESC LIMIT 20"
+            rows = await conn.fetch(query)
+            subsegment.sql = {
+                "database_type": "PostgreSQL",
+                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
+                "sanitized_query": query
+            }
+
+    tasks = [
+        {
+            "id": str(row["id"]),
+            "title": row["title"],
+            "description": row["description"],
+            "status": row["status"],
+            "created_at": row["created_at"].isoformat() + "Z",
+            "updated_at": row["updated_at"].isoformat() + "Z",
+        }
+        for row in rows
+    ]
+
+    return {"tasks": tasks, "simulation": "external-slow", "delay_seconds": 2}
 
 
 # --------------------------------
@@ -416,170 +630,3 @@ async def delete_task(task_id: str) -> None:
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": {"code": "NOT_FOUND", "message": f"Task {task_id} not found"}},
         )
-
-
-# --------------------------------
-# 障害シミュレーションAPI（X-Ray検証用）
-# --------------------------------
-
-
-@router.get("/slow-db", response_model=dict)
-async def slow_db_simulation() -> dict:
-    """
-    DB遅延シミュレーション（X-Ray検証用）
-
-    目的・理由:
-    - X-Rayで「DB処理が遅い」ことを可視化
-    - pg_sleep(3)で3秒遅延させる
-    - X-Rayサービスマップで確認
-
-    影響範囲:
-    - PostgreSQL（SELECT pg_sleep(3)）
-    - X-Rayトレース
-
-    前提条件・制約:
-    - 本番環境では無効化すべき
-    """
-    pool = await get_db_pool()
-
-    # X-Rayサブセグメント（PostgreSQL pg_sleep(3)）
-    with xray_recorder.capture("PostgreSQL") as subsegment:
-        subsegment.namespace = "remote"
-        async with pool.acquire() as conn:
-            query = "SELECT pg_sleep(3)"
-            await conn.fetchval(query)
-            subsegment.sql = {
-                "database_type": "PostgreSQL",
-                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
-                "sanitized_query": query
-            }
-
-    # 通常のタスク一覧取得
-    with xray_recorder.capture("PostgreSQL") as subsegment:
-        subsegment.namespace = "remote"
-        async with pool.acquire() as conn:
-            query = "SELECT * FROM tasks ORDER BY created_at DESC LIMIT 20"
-            rows = await conn.fetch(query)
-            subsegment.sql = {
-                "database_type": "PostgreSQL",
-                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
-                "sanitized_query": query
-            }
-
-    tasks = [
-        {
-            "id": str(row["id"]),
-            "title": row["title"],
-            "description": row["description"],
-            "status": row["status"],
-            "created_at": row["created_at"].isoformat() + "Z",
-            "updated_at": row["updated_at"].isoformat() + "Z",
-        }
-        for row in rows
-    ]
-
-    return {"tasks": tasks, "simulation": "db-slow", "delay_seconds": 3}
-
-
-@router.get("/slow-logic", response_model=dict)
-async def slow_logic_simulation() -> dict:
-    """
-    ロジック遅延シミュレーション（X-Ray検証用）
-
-    目的・理由:
-    - X-Rayで「アプリケーションロジックが遅い」ことを可視化
-    - time.sleep(5)で5秒遅延させる
-    - X-Rayサービスマップで確認
-
-    影響範囲:
-    - アプリケーション処理（time.sleep）
-    - X-Rayトレース
-
-    前提条件・制約:
-    - 本番環境では無効化すべき
-    - 非同期処理をブロックするため注意
-    """
-    # X-Rayサブセグメント（Business Logic）
-    with xray_recorder.capture("Business Logic"):
-        time.sleep(5)
-        xray_recorder.current_subsegment().put_metadata("delay_seconds", 5)
-
-    # 通常のタスク一覧取得
-    pool = await get_db_pool()
-    with xray_recorder.capture("PostgreSQL") as subsegment:
-        subsegment.namespace = "remote"
-        async with pool.acquire() as conn:
-            query = "SELECT * FROM tasks ORDER BY created_at DESC LIMIT 20"
-            rows = await conn.fetch(query)
-            subsegment.sql = {
-                "database_type": "PostgreSQL",
-                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
-                "sanitized_query": query
-            }
-
-    tasks = [
-        {
-            "id": str(row["id"]),
-            "title": row["title"],
-            "description": row["description"],
-            "status": row["status"],
-            "created_at": row["created_at"].isoformat() + "Z",
-            "updated_at": row["updated_at"].isoformat() + "Z",
-        }
-        for row in rows
-    ]
-
-    return {"tasks": tasks, "simulation": "logic-slow", "delay_seconds": 5}
-
-
-@router.get("/slow-external", response_model=dict)
-async def slow_external_simulation() -> dict:
-    """
-    外部API遅延シミュレーション（X-Ray検証用）
-
-    目的・理由:
-    - X-Rayで「外部API呼び出しが遅い」ことを可視化
-    - httpbin.org/delay/2で2秒遅延させる
-    - X-Rayサービスマップで確認
-
-    影響範囲:
-    - 外部API（httpbin.org）
-    - X-Rayトレース
-
-    前提条件・制約:
-    - 本番環境では無効化すべき
-    - httpbin.orgが利用可能であること
-    """
-    # X-Rayサブセグメント（External API httpbin.org）
-    with xray_recorder.capture("External API httpbin.org"):
-        async with httpx.AsyncClient() as client:
-            response = await client.get("https://httpbin.org/delay/2", timeout=10.0)
-            xray_recorder.current_subsegment().put_metadata("external_api_status", response.status_code)
-            xray_recorder.current_subsegment().put_metadata("delay_seconds", 2)
-
-    # 通常のタスク一覧取得
-    pool = await get_db_pool()
-    with xray_recorder.capture("PostgreSQL") as subsegment:
-        subsegment.namespace = "remote"
-        async with pool.acquire() as conn:
-            query = "SELECT * FROM tasks ORDER BY created_at DESC LIMIT 20"
-            rows = await conn.fetch(query)
-            subsegment.sql = {
-                "database_type": "PostgreSQL",
-                "url": "xray-poc-database-rds.cj0qqo84wrtl.ap-northeast-1.rds.amazonaws.com",
-                "sanitized_query": query
-            }
-
-    tasks = [
-        {
-            "id": str(row["id"]),
-            "title": row["title"],
-            "description": row["description"],
-            "status": row["status"],
-            "created_at": row["created_at"].isoformat() + "Z",
-            "updated_at": row["updated_at"].isoformat() + "Z",
-        }
-        for row in rows
-    ]
-
-    return {"tasks": tasks, "simulation": "external-slow", "delay_seconds": 2}

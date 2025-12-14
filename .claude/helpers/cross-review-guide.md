@@ -12,13 +12,52 @@
 | 成果物 | 作成者 | レビュアー | レビュー観点 | レビュースキル |
 |-------|-------|----------|------------|--------------|
 | 要件定義書 | PM | Consultant, App-Arch, Infra-Arch | ビジネス整合性、技術実現可能性 | `.claude/skills/review-requirements/` |
-| アプリ設計書 | App-Architect | Coder, Consultant | 実装可能性、ビジネス要件整合 | `.claude/skills/review-app-design/` |
-| インフラ設計書 | Infra-Architect | SRE, Consultant | 実装可能性、ビジネス要件整合 | `.claude/skills/review-infra-design/` |
+| アプリ設計書 | App-Architect | Coder, Consultant, **Infra-Arch** | 実装可能性、ビジネス要件整合、**インターフェース整合性** | `.claude/skills/review-app-design/` |
+| インフラ設計書 | Infra-Architect | SRE, Consultant, **App-Arch** | 実装可能性、ビジネス要件整合、**インターフェース整合性** | `.claude/skills/review-infra-design/` |
 | IaC (CloudFormation/Terraform) | SRE | Infra-Architect | 設計との整合性、ベストプラクティス | `.claude/skills/review-iac/` |
 | コード | Coder | QA | テスト可能性、品質 | `.claude/skills/review-code/` |
 | テストコード | QA | Coder | カバレッジ、実装との整合性 | `.claude/skills/review-test/` |
 
 **レビュースキル**: 各成果物タイプに対応したSkillsが用意されています。レビュアーは対応するSkillsのチェックリストを参照してレビューを実施します。
+
+---
+
+## ⚠️ App-Architect ⇔ Infra-Architect 相互レビュー（重要）
+
+**目的**: アプリ設計とインフラ設計の**インターフェース整合性**を担保する
+
+### なぜ相互レビューが必要か
+
+| 問題事例 | 原因 | 影響 |
+|---------|------|------|
+| ポート番号不一致 | アプリ:8000, インフラ:80 | コンテナ起動失敗 |
+| 環境変数未定義 | アプリが期待する変数がインフラで未設定 | 実行時エラー |
+| ヘルスチェック失敗 | パス不一致 `/health` vs `/api/health` | デプロイ失敗 |
+
+### インターフェース整合性レビューチェックリスト
+
+#### App-Architect → Infra-Architect レビュー時
+
+**インフラ設計書のレビュー観点**:
+- [ ] アプリが必要とするポート番号が ALB/ECS で正しく設定されているか
+- [ ] アプリが必要とする環境変数が全て定義されているか
+- [ ] シークレット（DB認証情報等）の参照方法がアプリの期待と一致しているか
+- [ ] ヘルスチェックエンドポイントのパスが正しいか
+- [ ] DB接続文字列の形式がアプリの期待と一致しているか
+
+#### Infra-Architect → App-Architect レビュー時
+
+**アプリ設計書のレビュー観点**:
+- [ ] アプリのポート番号がインフラ構成と整合しているか
+- [ ] 環境変数の命名がインフラで設定可能な形式か
+- [ ] ヘルスチェックエンドポイントが実装されるか
+- [ ] DB接続のタイムアウト設定がインフラと整合しているか
+- [ ] ログ出力形式が CloudWatch 等の要件を満たしているか
+
+### 参照ドキュメント
+
+- **インターフェース仕様書**: `docs/03_アプリケーション設計/01_基本設計/07_インターフェース仕様.md`
+- **テンプレート**: `.claude/docs/10_facilitation/2.3_設計フェーズ/2.3.14_インターフェース設計.md`
 
 ---
 
@@ -81,13 +120,34 @@
 ```
 以下のアプリ設計書をレビューしてください。
 
-**対象**: docs/03_基本設計/app/
+**対象**: docs/03_アプリケーション設計/
 **作成者**: App-Architect
 
 **レビュースキル**: `.claude/skills/review-app-design/` を参照
 **チェックリスト**: `.claude/skills/review-app-design/checklist/coder.md`
 
 チェックリストに基づいてレビューを実施し、結果を報告してください。
+```
+
+### インターフェース整合性レビュー（App-Architect ⇔ Infra-Architect）
+
+```
+アプリ設計書とインフラ設計書のインターフェース整合性をレビューしてください。
+
+**対象**:
+- アプリ設計書: docs/03_アプリケーション設計/
+- インフラ設計書: docs/04_インフラ設計/
+- インターフェース仕様書: docs/03_アプリケーション設計/01_基本設計/07_インターフェース仕様.md
+
+**チェック項目**:
+1. ポート番号の整合性
+2. 環境変数の整合性
+3. ヘルスチェックエンドポイントの整合性
+4. DB接続設定の整合性
+
+**参照**: `.claude/docs/10_facilitation/2.3_設計フェーズ/2.3.14_インターフェース設計.md`
+
+整合性の問題があれば報告してください。
 ```
 
 ### コードレビュー（Coder → QA）
